@@ -3,10 +3,8 @@ import { createPublicClient, http, zeroAddress, parseEther } from "viem";
 import { createBundlerClient, createPaymasterClient, entryPoint07Address } from "viem/account-abstraction";
 import { createPimlicoClient } from "permissionless/clients/pimlico"
 import { monadTestnet } from "viem/chains";
-import { createMetaMaskWalletClient } from "@/hooks/wallet.js";
-import axios from "axios";
-import { API_URL } from "@/config/api";
 import { getBalances } from "./useMonorail";
+import { getUserWalletClient } from "./walletClient";
 
 
 export const publicClient = createPublicClient({
@@ -34,8 +32,11 @@ export const pimlicoClient = createPimlicoClient({
 })
 
 export async function getSmartAccounts(withBalance) {
+
+    const walletClient = await getUserWalletClient();
+    const address = walletClient.account?.address;
+
     try {
-        const { walletClient, address } = await createMetaMaskWalletClient();
 
         let allAccounts = [];
         let initialSalt = "0x0";
@@ -44,7 +45,7 @@ export async function getSmartAccounts(withBalance) {
         while (true) {
             id++;
             console.log('smart account found: ', id);
-            
+
             const smartAccount = await toMetaMaskSmartAccount({
                 client: publicClient,
                 implementation: Implementation.Hybrid,
@@ -93,8 +94,11 @@ export async function getSmartAccounts(withBalance) {
 }
 
 export async function deploySmartContract(salt) {
+
+    const walletClient = await getUserWalletClient();
+    const address = walletClient.account?.address;
     try {
-        const { walletClient, address } = await createMetaMaskWalletClient();
+
         const smartAccount = await toMetaMaskSmartAccount({
             client: publicClient,
             implementation: Implementation.Hybrid,
@@ -134,7 +138,8 @@ export async function deploySmartContract(salt) {
 
 export async function importSmartAccountWithSalt(salt) {
     try {
-        const { walletClient, address } = await createMetaMaskWalletClient();
+        const walletClient = await getUserWalletClient();
+        const address = walletClient.account?.address;
 
         const smartAccount = await toMetaMaskSmartAccount({
             client: publicClient,

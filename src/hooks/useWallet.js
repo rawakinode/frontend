@@ -1,15 +1,15 @@
 import { encodeFunctionData, erc20Abi, parseEther, parseUnits, zeroAddress } from "viem";
-import { createMetaMaskWalletClient } from "./wallet";
 import { bundlerClient, importSmartAccountWithSalt, pimlicoClient, publicClient } from "./useSmartAccount";
 import { monadTestnet } from "viem/chains";
 import { Implementation, toMetaMaskSmartAccount } from "@metamask/delegation-toolkit";
+import { getUserWalletClient } from "./walletClient";
 
 const SWAP_CONTRACT = "0x525b929fcd6a64aff834f4eecc6e860486ced700";
 
 // deposit mon & token from main wallet to smart acoount
 export async function deposit(to, amount, erc20Address, decimals) {
 
-    const { walletClient, address } = await createMetaMaskWalletClient();
+    const walletClient = await getUserWalletClient();
 
     try {
         let txHash;
@@ -52,7 +52,7 @@ export async function deposit(to, amount, erc20Address, decimals) {
 export async function withdraw(to, amount, erc20Address, decimals, salt) {
     try {
 
-        const { walletClient, address } = await createMetaMaskWalletClient();
+        const walletClient = await getUserWalletClient();
 
         let txHash;
 
@@ -141,7 +141,7 @@ export async function swapMonToERC20(quoteData, salt) {
 
 export async function swapERC20ToMon(quoteData, salt) {
     try {
-        
+
         const smartAccount = await importSmartAccountWithSalt(salt);
 
         // Approve erc
@@ -168,7 +168,7 @@ export async function swapERC20ToMon(quoteData, salt) {
                     value: 0n,
                     data: quoteData.transaction.data
                 },
-                
+
             ],
             ...fee
         });
