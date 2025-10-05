@@ -53,6 +53,7 @@ export async function withdraw(to, amount, erc20Address, decimals, salt) {
     try {
 
         const walletClient = await getUserWalletClient();
+        const address = walletClient.account?.address;
 
         let txHash;
 
