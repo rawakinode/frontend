@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
+import { API_URL } from "@/config/api";
 
-const API_BASE = "http://localhost:3300";
+const API_BASE = API_URL;
 const STORAGE_KEY = "jwt_token";
 
 export function useAPI() {
