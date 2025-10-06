@@ -223,6 +223,7 @@ export default function Task() {
         const fetchSmartAccounts = async () => {
             if (isConnected && address) {
                 try {
+
                     setLoading(true);
                     const accounts = await getSmartAccounts(false);
                     setAllSmartAccounts(accounts);

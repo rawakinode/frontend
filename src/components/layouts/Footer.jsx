@@ -16,11 +16,6 @@ export function Footer() {
           {/* Separator */}
           <div className="text-muted-foreground">|</div>
 
-          {/* Powered By Text */}
-          <div className="text-muted-foreground">
-            Powered by
-          </div>
-
           {/* Partner Logos */}
           <div className="flex items-center gap-3">
             <img 
