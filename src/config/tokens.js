@@ -1,4 +1,12 @@
-export const token_list = [
+export const tokens = [
+    {
+        "address": "0x0000000000000000000000000000000000000000",
+        "name": "Monad",
+        "symbol": "MON",
+        "decimals": 18,
+        "image_url": "https://imagedelivery.net/cBNDGgkrsEA-b_ixIp9SkQ/I_t8rg_V_400x400.jpg/public",
+        "verified": true
+    },
     {
         "address": "0x760AfE86e5de5fa0Ee542fc7B7B713e1c5425701",
         "name": "Wrapped Monad",

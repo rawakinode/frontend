@@ -54,6 +54,9 @@ import { swapERC20ToMon, swapMonToERC20 } from "@/hooks/useWallet";
 import { createSwapDelegation } from "@/hooks/useDelegation";
 import { useAPI } from "@/hooks/useAPI";
 
+// Import token list dari file lokal
+import { tokens } from "@/config/tokens";
+
 const LIMIT_OPTIONS = [
     { label: "1 Day", value: { days: 1 } },
     { label: "1 Week", value: { days: 7 } },
@@ -162,15 +165,31 @@ function SwapConfirmationPopup({
                     <div className="bg-white/5 rounded-xl p-4 mb-4">
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center">
-                                    <span className="text-xs font-medium">{fromToken?.symbol?.charAt(0)}</span>
+                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                                    {fromToken?.image_url ? (
+                                        <img
+                                            src={fromToken.image_url}
+                                            alt={fromToken.symbol}
+                                            className="w-full h-full rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-xs font-medium">{fromToken?.symbol?.charAt(0)}</span>
+                                    )}
                                 </div>
                                 <span className="font-semibold">{fromAmount} {fromToken?.symbol}</span>
                             </div>
                             <ArrowDownUp className="w-4 h-4 text-muted-foreground" />
                             <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center">
-                                    <span className="text-xs font-medium">{toToken?.symbol?.charAt(0)}</span>
+                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                                    {toToken?.image_url ? (
+                                        <img
+                                            src={toToken.image_url}
+                                            alt={toToken.symbol}
+                                            className="w-full h-full rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-xs font-medium">{toToken?.symbol?.charAt(0)}</span>
+                                    )}
                                 </div>
                                 <span className="font-semibold">{(swapType == 'price' ? limitPrice : toAmount)} {toToken?.symbol}</span>
                             </div>
@@ -265,15 +284,31 @@ function SuccessPopup({ open, onOpenChange, txHash, fromToken, toToken, fromAmou
                     >
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center">
-                                    <span className="text-xs font-medium">{fromToken?.symbol?.charAt(0)}</span>
+                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                                    {fromToken?.image_url ? (
+                                        <img
+                                            src={fromToken.image_url}
+                                            alt={fromToken.symbol}
+                                            className="w-full h-full rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-xs font-medium">{fromToken?.symbol?.charAt(0)}</span>
+                                    )}
                                 </div>
                                 <span className="font-semibold">{(Number(fromAmount)).toFixed(8)} {fromToken?.symbol}</span>
                             </div>
                             <ArrowDownUp className="w-4 h-4 text-muted-foreground" />
                             <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center">
-                                    <span className="text-xs font-medium">{toToken?.symbol?.charAt(0)}</span>
+                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                                    {toToken?.image_url ? (
+                                        <img
+                                            src={toToken.image_url}
+                                            alt={toToken.symbol}
+                                            className="w-full h-full rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-xs font-medium">{toToken?.symbol?.charAt(0)}</span>
+                                    )}
                                 </div>
                                 <span className="font-semibold">{(tipeSwap == 'price' ? limitPrice : toAmount)} {toToken?.symbol}</span>
                             </div>
@@ -436,15 +471,31 @@ function TaskQueuedPopup({
                     >
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center">
-                                    <span className="text-xs font-medium">{fromToken?.symbol?.charAt(0)}</span>
+                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                                    {fromToken?.image_url ? (
+                                        <img
+                                            src={fromToken.image_url}
+                                            alt={fromToken.symbol}
+                                            className="w-full h-full rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-xs font-medium">{fromToken?.symbol?.charAt(0)}</span>
+                                    )}
                                 </div>
                                 <span className="font-semibold">{(Number(fromAmount)).toFixed(8)} {fromToken?.symbol}</span>
                             </div>
                             <ArrowDownUp className="w-4 h-4 text-muted-foreground" />
                             <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center">
-                                    <span className="text-xs font-medium">{toToken?.symbol?.charAt(0)}</span>
+                                <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                                    {toToken?.image_url ? (
+                                        <img
+                                            src={toToken.image_url}
+                                            alt={toToken.symbol}
+                                            className="w-full h-full rounded-full object-cover"
+                                        />
+                                    ) : (
+                                        <span className="text-xs font-medium">{toToken?.symbol?.charAt(0)}</span>
+                                    )}
                                 </div>
                                 <span className="font-semibold">{swapType == 'price' ? (Number(limitPrice)).toFixed(8) : (Number(toAmount)).toFixed(8)} {toToken?.symbol}</span>
                             </div>
@@ -475,46 +526,18 @@ function TaskQueuedPopup({
     );
 }
 
-function TokenSelect({ selected, onChange, tokenList, disabled }) {
+function TokenSelect({ selected, onChange, disabled }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
-    const [isSearching, setIsSearching] = useState(false);
-    const [foundToken, setFoundToken] = useState(null);
-    const [customTokens, setCustomTokens] = useState([]);
 
-    const allTokens = [...tokenList, ...customTokens];
-
-    const isContractAddress = search.startsWith('0x') && search.length === 42;
-
-    const fetchTokenByAddress = async (address) => {
-        setIsSearching(true);
-        try {
-            const response = await axios.get(`/api/monorail/v1/token/${address}`);
-            const token = response.data;
-            setIsSearching(false);
-            return token;
-        } catch (err) {
-            console.error("Token not found:", err);
-            setIsSearching(false);
-            return null;
-        }
-    };
-
-    const handleSearch = async (value) => {
+    const handleSearch = (value) => {
         setSearch(value);
-        setFoundToken(null);
-
-        if (value.startsWith('0x') && value.length === 42) {
-            const token = await fetchTokenByAddress(value);
-            if (token) setFoundToken(token);
-        }
     };
 
     const handleTokenSelect = (token) => {
         onChange(token);
         setOpen(false);
         setSearch("");
-        setFoundToken(null);
     };
 
     function TokenItem({ token, onSelect, isSelected }) {
@@ -524,17 +547,25 @@ function TokenSelect({ selected, onChange, tokenList, disabled }) {
                 className="flex items-center justify-between w-full p-3 hover:bg-white/5 transition-colors rounded-lg"
             >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
-                    <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center">
-                        <span className="text-xs font-medium">{token?.symbol?.charAt(0)}</span>
+                    <div className="w-8 h-8 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                        {token?.image_url ? (
+                            <img
+                                src={token.image_url}
+                                alt={token.symbol}
+                                className="w-full h-full rounded-full object-cover"
+                                onError={(e) => {
+                                    e.target.style.display = 'none';
+                                }}
+                            />
+                        ) : (
+                            <span className="text-xs font-medium text-white">{token?.symbol?.charAt(0) || '?'}</span>
+                        )}
                     </div>
                     <div className="flex-1 min-w-0 text-left">
                         <div className="flex items-center gap-2">
                             <span className="font-medium truncate">{token?.symbol}</span>
                             {token?.verified && (
                                 <span className="text-xs bg-blue-500 text-white px-1 rounded">✓</span>
-                            )}
-                            {token?.isCustom && (
-                                <span className="text-xs bg-gray-500 text-white px-1 rounded">Custom</span>
                             )}
                         </div>
                         <div className="text-sm text-muted-foreground truncate">{token?.name}</div>
@@ -549,12 +580,10 @@ function TokenSelect({ selected, onChange, tokenList, disabled }) {
         );
     }
 
-    const filteredTokens = isContractAddress
-        ? (foundToken ? [foundToken] : [])
-        : allTokens.filter(token =>
-            token?.symbol?.toLowerCase().includes(search.toLowerCase()) ||
-            token?.name?.toLowerCase().includes(search.toLowerCase())
-        );
+    const filteredTokens = tokens.filter(token =>
+        token?.symbol?.toLowerCase().includes(search.toLowerCase()) ||
+        token?.name?.toLowerCase().includes(search.toLowerCase())
+    );
 
     return (
         <Dialog open={open} onOpenChange={setOpen}>
@@ -568,8 +597,18 @@ function TokenSelect({ selected, onChange, tokenList, disabled }) {
                 >
                     {selected ? (
                         <>
-                            <div className="w-5 h-5 rounded-full bg-gray-600 flex items-center justify-center">
-                                <span className="text-xs font-medium">{selected?.symbol?.charAt(0)}</span>
+                            <div className="w-6 h-6 rounded-full bg-gray-600 flex items-center justify-center overflow-hidden">
+                                {selected?.image_url ? (
+                                    <img
+                                        src={selected.image_url}
+                                        alt={selected.symbol || 'token'}
+                                        className="w-full h-full rounded-full object-cover"
+                                        onError={e => { e.target.style.display = 'none'; }}
+                                        title={selected.symbol}
+                                    />
+                                ) : (
+                                    <span className="text-xs font-medium text-white">{selected?.symbol?.charAt(0) || '?'}</span>
+                                )}
                             </div>
                             <span className="font-semibold">{selected?.symbol}</span>
                         </>
@@ -589,7 +628,7 @@ function TokenSelect({ selected, onChange, tokenList, disabled }) {
                     <div className="relative">
                         <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
                         <Input
-                            placeholder="Search name or paste address"
+                            placeholder="Search token"
                             className="pl-10 pr-4 py-2 bg-white/5 border-0 text-white placeholder:text-gray-400"
                             value={search}
                             onChange={(e) => handleSearch(e.target.value)}
@@ -598,12 +637,7 @@ function TokenSelect({ selected, onChange, tokenList, disabled }) {
                 </div>
 
                 <div className="max-h-96 overflow-y-auto">
-                    {isSearching ? (
-                        <div className="p-8 text-center">
-                            <Loader2 className="animate-spin h-8 w-8 mx-auto text-blue-500" />
-                            <p className="mt-2 text-sm text-muted-foreground">Searching...</p>
-                        </div>
-                    ) : filteredTokens.length > 0 ? (
+                    {filteredTokens.length > 0 ? (
                         <div className="divide-y divide-white/10">
                             {filteredTokens.map((token) => (
                                 <TokenItem
@@ -613,11 +647,6 @@ function TokenSelect({ selected, onChange, tokenList, disabled }) {
                                     isSelected={selected?.address === token.address}
                                 />
                             ))}
-                        </div>
-                    ) : isContractAddress ? (
-                        <div className="p-8 text-center">
-                            <AlertCircle className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                            <p className="text-sm text-muted-foreground">No token found at this address</p>
                         </div>
                     ) : (
                         <div className="p-8 text-center">
@@ -705,9 +734,13 @@ function SettingsModal({ open, onOpenChange, settings, onSettingsChange }) {
 }
 
 export default function SwapBox() {
-    const defaultFromTo = defaultSwapFromTo();
+    // Temukan token MON dan USDC dari tokens.js untuk default swap
+    const defaultFromTo = useMemo(() => {
+        const monToken = tokens.find(token => token.symbol === 'MON') || tokens[0];
+        const usdcToken = tokens.find(token => token.symbol === 'USDC') || tokens[2];
+        return [monToken, usdcToken];
+    }, []);
 
-    const [tokenList, setTokenlist] = useState([]);
     const [fromToken, setFromToken] = useState(defaultFromTo[0]);
     const [toToken, setToToken] = useState(defaultFromTo[1]);
     const [fromAmount, setFromAmount] = useState("");
@@ -771,7 +804,6 @@ export default function SwapBox() {
 
     const handleSwapTypeChange = (value) => {
         console.log(`Swap type change to ${value}`);
-
         setSelectedSwapType(value);
     };
 
@@ -810,7 +842,6 @@ export default function SwapBox() {
     const handleSelectLimitOption = useCallback((option) => {
         const newDate = calculateNewDate(option.value);
         console.log(newDate);
-
         setSwapLimitExpired(newDate);
         setSelectedLimitOption(option.label);
     }, [calculateNewDate]);
@@ -842,10 +873,6 @@ export default function SwapBox() {
     useEffect(() => {
         (async () => {
             try {
-                const verifiedTokens = await getVerifiedTokenWithBalance(selectedSmartAccount.address);
-                const tokens = Array.isArray(verifiedTokens) ? verifiedTokens : [];
-                setTokenlist(tokens);
-
                 if (isConnected) {
                     const sa = await getSmartAccounts(false);
                     if (sa.length > 0) {
@@ -1128,7 +1155,6 @@ export default function SwapBox() {
                                     setFromToken(token);
                                 }
                             }}
-                            tokenList={tokenList}
                         />
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">
@@ -1169,7 +1195,6 @@ export default function SwapBox() {
                                     setToToken(token);
                                 }
                             }}
-                            tokenList={tokenList}
                         />
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">
