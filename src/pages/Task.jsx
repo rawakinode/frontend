@@ -25,6 +25,7 @@ import { MoreVertical, AlertCircle, Unplug, Loader2, X, CheckCircle, XCircle } f
 import { useAccount } from "wagmi";
 import { getSmartAccounts } from "@/hooks/useSmartAccount";
 import { useAPI } from "@/hooks/useAPI";
+import CooldownTime from "@/components/features/CooldownTime";
 
 const typeColor = {
     immediately: "bg-green-700",
@@ -91,12 +92,12 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, task, loading }) => {
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
-                
+
                 <div className="space-y-4 mb-6">
                     <p className="text-sm text-muted-foreground">
                         Are you sure you want to cancel this task? This action cannot be undone.
                     </p>
-                    
+
                     {/* Task Data Display */}
                     {task && (
                         <Card className="p-3 bg-muted/20">
@@ -134,8 +135,8 @@ const ConfirmationDialog = ({ isOpen, onClose, onConfirm, task, loading }) => {
                     <Button variant="outline" onClick={onClose} disabled={loading}>
                         Keep Task
                     </Button>
-                    <Button 
-                        variant="destructive" 
+                    <Button
+                        variant="destructive"
                         onClick={onConfirm}
                         disabled={loading}
                         className="flex items-center gap-2"
@@ -175,11 +176,11 @@ const ResultPopup = ({ isOpen, onClose, isSuccess, message }) => {
                         <XCircle className="h-12 w-12 text-red-500" />
                     )}
                 </div>
-                
+
                 <h3 className={`text-lg font-bold mb-2 ${isSuccess ? 'text-green-500' : 'text-red-500'}`}>
                     {isSuccess ? 'Task Cancelled Successfully' : 'Cancellation Failed'}
                 </h3>
-                
+
                 <p className="text-sm text-muted-foreground mb-4">
                     {message}
                 </p>
@@ -193,14 +194,14 @@ const ResultPopup = ({ isOpen, onClose, isSuccess, message }) => {
 };
 
 export default function Task() {
-    const [activeStatus, setActiveStatus] = useState("active");
+    const [activeStatus, setActiveStatus] = useState("all");
     const [currentPage, setCurrentPage] = useState(1);
     const [allSmartAccounts, setAllSmartAccounts] = useState([]);
     const [selectedSmartAccount, setSelectedSmartAccount] = useState("");
     const [tasksData, setTasksData] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
-    
+
     // State untuk cancellation functionality
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
     const [selectedTask, setSelectedTask] = useState(null);
@@ -211,7 +212,7 @@ export default function Task() {
         message: ""
     });
 
-    const statuses = ["active", "failed", "completed", "canceled"];
+    const statuses = ["all", "active", "failed", "completed", "canceled"];
 
     const { getDelegationDataFromAPI, cancelDelegationTask } = useAPI();
 
@@ -270,7 +271,7 @@ export default function Task() {
 
     // Map data dari API ke format task
     const mappedTasks = useMemo(() => {
-        return tasksData.map(task => ({
+        const tasks = tasksData.map(task => ({
             id: task._id?.$oid || Math.random().toString(),
             type: task.type || "scheduled",
             status: task.status || "active",
@@ -285,10 +286,14 @@ export default function Task() {
             messageStatus: task.message_status || "",
             originalData: task
         }));
+
+        // Sort descending berdasarkan timestamp (baru → lama)
+        return tasks.sort((a, b) => Number(b.originalData.timestamp) - Number(a.originalData.timestamp));
     }, [tasksData]);
 
     // Filter tasks berdasarkan status aktif 
     const filteredTasks = useMemo(() => {
+        if (activeStatus === "all") return mappedTasks;
         return mappedTasks.filter(task => task.status === activeStatus);
     }, [mappedTasks, activeStatus]);
 
@@ -324,7 +329,7 @@ export default function Task() {
         try {
             // Panggil API untuk cancel task
             const response = await cancelDelegationTask(selectedTask.originalData._id);
-            
+
             if (response.status === 'ok' || response.success) {
                 // Show success popup
                 setResultPopup({
@@ -332,7 +337,7 @@ export default function Task() {
                     success: true,
                     message: "The task has been successfully cancelled."
                 });
-                
+
                 // Refresh data tasks
                 await fetchDelegationData(selectedSmartAccount);
             } else {
@@ -536,7 +541,7 @@ export default function Task() {
                                                         </Button>
                                                     </DropdownMenuTrigger>
                                                     <DropdownMenuContent align="end">
-                                                        <DropdownMenuItem 
+                                                        <DropdownMenuItem
                                                             className="text-xs"
                                                             onClick={() => handleOpenCancelDialog(task)}
                                                         >
@@ -560,6 +565,10 @@ export default function Task() {
                                             <div className="flex justify-between leading-none">
                                                 <span className="font-semibold">Receive:</span>
                                                 <span>{task.targetPrice} {task.to}</span>
+                                            </div>
+                                            <div className="flex justify-between leading-none">
+                                                <span className="font-semibold">Created at:</span>
+                                                <span>{new Date(task.originalData.timestamp).toLocaleString()}</span>
                                             </div>
 
                                             {(task.status === "active" && task.type === "price") && (
