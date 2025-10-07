@@ -3,121 +3,166 @@ import { bundlerClient, importSmartAccountWithSalt, pimlicoClient, publicClient 
 import { monadTestnet } from "viem/chains";
 import { Implementation, toMetaMaskSmartAccount } from "@metamask/delegation-toolkit";
 import { getUserWalletClient } from "./walletClient";
+import { MONORAIL_CONTRACT } from "@/config/contract";
 
-const SWAP_CONTRACT = "0x525b929fcd6a64aff834f4eecc6e860486ced700";
+const SWAP_CONTRACT = MONORAIL_CONTRACT;
 
-// deposit mon & token from main wallet to smart acoount
+/**
+ * Deposits funds from main wallet to smart account
+ * @param {string} to - Smart account address to deposit to
+ * @param {number} amount - Amount to deposit
+ * @param {string} erc20Address - Token address (zeroAddress for native token)
+ * @param {number} decimals - Token decimals
+ * @returns {Promise<string|null>} Transaction hash or null if failed
+ */
 export async function deposit(to, amount, erc20Address, decimals) {
-
     const walletClient = await getUserWalletClient();
 
     try {
-        let txHash;
-
-        if (erc20Address.toLowerCase() == zeroAddress.toLowerCase()) {
-            // Native transfer (ETH)
-            const tx = await walletClient.sendTransaction({
-                to,
-                value: parseUnits(amount.toString(), 18),
-                chain: monadTestnet
-            });
-            txHash = tx;
+        if (erc20Address.toLowerCase() === zeroAddress.toLowerCase()) {
+            return await depositNativeToken(walletClient, to, amount);
         } else {
-            // ERC20 token transfer
-            const erc20Contract = {
-                address: erc20Address,
-                abi: erc20Abi,
-                functionName: "transfer",
-            };
-
-            const tx = await walletClient.writeContract({
-                ...erc20Contract,
-                functionName: "transfer",
-                args: [to, parseUnits(amount.toString(), decimals)],
-                chain: monadTestnet
-            });
-
-            txHash = tx;
+            return await depositERC20Token(walletClient, to, amount, erc20Address, decimals);
         }
-
-        return txHash;
-
     } catch (error) {
         console.error("Deposit error:", error);
         return null;
     }
 }
 
-// withdraw mon & token from smart account to main wallet
+/**
+ * Deposits native token (ETH) to smart account
+ */
+async function depositNativeToken(walletClient, to, amount) {
+    const tx = await walletClient.sendTransaction({
+        to,
+        value: parseUnits(amount.toString(), 18),
+        chain: monadTestnet
+    });
+    return tx;
+}
+
+/**
+ * Deposits ERC20 token to smart account
+ */
+async function depositERC20Token(walletClient, to, amount, erc20Address, decimals) {
+    const tx = await walletClient.writeContract({
+        address: erc20Address,
+        abi: erc20Abi,
+        functionName: "transfer",
+        args: [to, parseUnits(amount.toString(), decimals)],
+        chain: monadTestnet
+    });
+    return tx;
+}
+
+/**
+ * Withdraws funds from smart account to main wallet
+ * @param {string} to - Recipient address
+ * @param {number} amount - Amount to withdraw
+ * @param {string} erc20Address - Token address (zeroAddress for native token)
+ * @param {number} decimals - Token decimals
+ * @param {string} salt - Smart account salt
+ * @returns {Promise<string|null>} Transaction hash or null if failed
+ */
 export async function withdraw(to, amount, erc20Address, decimals, salt) {
     try {
-
         const walletClient = await getUserWalletClient();
         const address = walletClient.account?.address;
 
-        let txHash;
-
-        const smartAccount = await toMetaMaskSmartAccount({
-            client: publicClient,
-            implementation: Implementation.Hybrid,
-            deployParams: [to, [], [], []],
-            deploySalt: salt,
-            signer: { walletClient }
-        });
-
-        if (erc20Address.toLowerCase() == zeroAddress.toLowerCase()) {
-
-            const userOperationGasPrice = await pimlicoClient.getUserOperationGasPrice();
-            const fee = userOperationGasPrice.fast;
-
-            const userOperationHash = await bundlerClient.sendUserOperation({
-                account: smartAccount,
-                calls: [{
-                    to: address,
-                    value: parseEther(amount)
-                }],
-                ...fee
-            });
-
-            const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOperationHash });
-            txHash = receipt.transactionHash;
-
-        } else {
-            const userOperationGasPrice = await pimlicoClient.getUserOperationGasPrice();
-            const fee = userOperationGasPrice.fast;
-            const userOperationHash = await bundlerClient.sendUserOperation({
-                account: smartAccount,
-                calls: [
-                    {
-                        to: erc20Address,
-                        value: 0n,
-                        data: encodeFunctionData({
-                            abi: erc20Abi,
-                            functionName: "transfer",
-                            args: [address, parseUnits(amount, decimals)],
-                        }),
-                    },
-                ],
-                ...fee,
-            });
-            const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOperationHash });
-            txHash = receipt.transactionHash;
+        if (!address) {
+            throw new Error("No wallet address found");
         }
 
-        return txHash;
-    } catch (error) {
-        console.log(error);
+        const smartAccount = await createSmartAccountForWithdrawal(walletClient, to, salt);
 
+        if (erc20Address.toLowerCase() === zeroAddress.toLowerCase()) {
+            return await withdrawNativeToken(smartAccount, address, amount);
+        } else {
+            return await withdrawERC20Token(smartAccount, address, amount, erc20Address, decimals);
+        }
+    } catch (error) {
+        console.error("Withdrawal error:", error);
         return null;
     }
 }
 
+/**
+ * Creates smart account instance for withdrawal operations
+ */
+async function createSmartAccountForWithdrawal(walletClient, ownerAddress, salt) {
+    return await toMetaMaskSmartAccount({
+        client: publicClient,
+        implementation: Implementation.Hybrid,
+        deployParams: [ownerAddress, [], [], []],
+        deploySalt: salt,
+        signer: { walletClient }
+    });
+}
+
+/**
+ * Withdraws native token from smart account
+ */
+async function withdrawNativeToken(smartAccount, recipientAddress, amount) {
+    const fee = await getGasPrice();
+    
+    const userOperationHash = await bundlerClient.sendUserOperation({
+        account: smartAccount,
+        calls: [{
+            to: recipientAddress,
+            value: parseEther(amount)
+        }],
+        ...fee
+    });
+
+    const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOperationHash });
+    return receipt.transactionHash;
+}
+
+/**
+ * Withdraws ERC20 token from smart account
+ */
+async function withdrawERC20Token(smartAccount, recipientAddress, amount, erc20Address, decimals) {
+    const fee = await getGasPrice();
+    
+    const userOperationHash = await bundlerClient.sendUserOperation({
+        account: smartAccount,
+        calls: [
+            {
+                to: erc20Address,
+                value: 0n,
+                data: encodeFunctionData({
+                    abi: erc20Abi,
+                    functionName: "transfer",
+                    args: [recipientAddress, parseUnits(amount, decimals)],
+                }),
+            },
+        ],
+        ...fee,
+    });
+
+    const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOperationHash });
+    return receipt.transactionHash;
+}
+
+/**
+ * Gets current gas price for user operations
+ */
+async function getGasPrice() {
+    const userOperationGasPrice = await pimlicoClient.getUserOperationGasPrice();
+    return userOperationGasPrice.fast;
+}
+
+/**
+ * Executes swap from native token to ERC20 token
+ * @param {Object} quoteData - Swap quote data
+ * @param {string} salt - Smart account salt
+ * @returns {Promise<string|null>} Transaction hash or null if failed
+ */
 export async function swapMonToERC20(quoteData, salt) {
     try {
         const smartAccount = await importSmartAccountWithSalt(salt);
-
-        const userOperationGasPrice = await pimlicoClient.getUserOperationGasPrice();
-        const fee = userOperationGasPrice.fast;
+        const fee = await getGasPrice();
 
         const userOperationHash = await bundlerClient.sendUserOperation({
             account: smartAccount,
@@ -130,57 +175,63 @@ export async function swapMonToERC20(quoteData, salt) {
         });
 
         const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOperationHash });
-        const txHash = receipt.transactionHash;
-
-        return txHash;
+        return receipt.transactionHash;
 
     } catch (error) {
-        console.log(error);
+        console.error("Swap MON to ERC20 error:", error);
         return null;
     }
 }
 
+/**
+ * Executes swap from ERC20 token to native token
+ * @param {Object} quoteData - Swap quote data
+ * @param {string} salt - Smart account salt
+ * @returns {Promise<string|null>} Transaction hash or null if failed
+ */
 export async function swapERC20ToMon(quoteData, salt) {
     try {
-
         const smartAccount = await importSmartAccountWithSalt(salt);
+        const fee = await getGasPrice();
 
-        // Approve erc
-        const callData = encodeFunctionData({
-            abi: erc20Abi,
-            functionName: "approve",
-            args: [SWAP_CONTRACT, BigInt(quoteData.input)],
-        });
-
-        const userOperationGasPrice = await pimlicoClient.getUserOperationGasPrice();
-        const fee = userOperationGasPrice.fast;
-
-        // aprove & send batch
-        const userOperationHash = await bundlerClient.sendUserOperation({
-            account: smartAccount,
-            calls: [
-                {
-                    to: quoteData.from,
-                    value: 0n,
-                    data: callData
-                },
-                {
-                    to: SWAP_CONTRACT,
-                    value: 0n,
-                    data: quoteData.transaction.data
-                },
-
-            ],
-            ...fee
-        });
+        const userOperationHash = await executeERC20ToNativeSwap(
+            smartAccount, 
+            quoteData
+        );
 
         const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOperationHash });
-        const txHash = receipt.transactionHash;
-
-        return txHash;
+        return receipt.transactionHash;
 
     } catch (error) {
-        console.log(error);
+        console.error("Swap ERC20 to MON error:", error);
         return null;
     }
+}
+
+/**
+ * Executes ERC20 to native token swap with approval
+ */
+async function executeERC20ToNativeSwap(smartAccount, quoteData) {
+    const approveCallData = encodeFunctionData({
+        abi: erc20Abi,
+        functionName: "approve",
+        args: [SWAP_CONTRACT, BigInt(quoteData.input)],
+    });
+
+    return await bundlerClient.sendUserOperation({
+        account: smartAccount,
+        calls: [
+            {
+                to: quoteData.from,
+                value: 0n,
+                data: approveCallData
+            },
+            {
+                to: SWAP_CONTRACT,
+                value: 0n,
+                data: quoteData.transaction.data
+            },
+        ],
+        ...(await getGasPrice())
+    });
 }

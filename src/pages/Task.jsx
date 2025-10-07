@@ -574,7 +574,7 @@ export default function Task() {
                                             {(task.status === "active" && task.type === "price") && (
                                                 <div className="flex justify-between leading-none">
                                                     <span className="font-semibold">Target Price:</span>
-                                                    <span>{task.swapLimitPrice}</span>
+                                                    <span>{task.originalData.swap_limit_price}</span>
                                                 </div>
                                             )}
 
