@@ -1,4 +1,4 @@
-# 🚀 Swifter - Advanced Swap Aggregator for MetaMask Smart Accounts
+#  Swifter - Advanced Swap Aggregator for MetaMask Smart Accounts
 
 ## 📋 Executive Summary
 
@@ -22,7 +22,7 @@
 - Automated limit orders with specific price targets
 - Flexible expiration periods (1 day to 1 year)
 - Automatic calculation of minimum received amount
-- Real-time price monitoring
+- Automated execution without user intervention
 
 ## 🏗️ Technical Architecture
 
@@ -116,7 +116,6 @@ const caveats = [
 1. **MetaMask Delegation Integration**: First in the Monad ecosystem
 2. **Hybrid Smart Accounts**: Combines EOA and smart contract benefits
 3. **Gasless Operations**: Seamless user experience without gas fees
-4. **Cross-token Support**: Native MON and all ERC20 tokens
 
 ### **Competitive Advantages**
 - **Multi-mode Swaps**: One platform for all trading needs
@@ -149,16 +148,16 @@ const caveats = [
 ### **Contract Architecture**
 ```javascript
 // Core contract addresses
-MONORAIL_CONTRACT = "0x...";      // Swap aggregation
-DELEGATOR_ADDRESS = "0x...";      // Scheduled swap delegator
-DELEGATOR_ADDRESS_PRICE = "0x..."; // Price-based swap delegator
+MONORAIL_CONTRACT = "0x525b929fcd6a64aff834f4eecc6e860486ced700";      // Swap aggregation
+DELEGATOR_ADDRESS = "0x22f4b7Bca137cF91AE3d08B393167FADdA220eee";      // Scheduled swap Executor
+DELEGATOR_ADDRESS_PRICE = "0x82eC492530cAef73fec8512054b070a0a35E0000"; // Price-based swap Execitor
 ```
 
 ## 🚀 Roadmap & Scalability
 
 ### **Immediate Enhancements**
 - [ ] Multi-chain deployment preparation
-- [ ] Advanced order types (trailing stops, OCO)
+- [ ] Advanced order types
 - [ ] Portfolio management features
 - [ ] Mobile app development
 
