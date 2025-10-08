@@ -9,11 +9,12 @@ import { Swap } from './pages/Swap';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Task from './pages/Task';
 import SmartWallet from './pages/SmartWallet';
-import { useAuth } from './hooks/useAuth';
+// import { useAuth } from './hooks/useAuth';
+import { useAuth } from "@/context/AuthContext";
 
 function App() {
 
-  const { token, userData, loading, isConnected, handleLogout } = useAuth();
+  // const { token, userData, loading, isConnected, handleLogout } = useAuth();
   
   return (
     <TooltipProvider>

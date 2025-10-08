@@ -56,6 +56,7 @@ import { useAPI } from "@/hooks/useAPI";
 
 // Import token list dari file lokal
 import { tokens } from "@/config/tokens";
+import { useAuth } from "@/context/AuthContext";
 
 const LIMIT_OPTIONS = [
     { label: "1 Day", value: { days: 1 } },
@@ -794,7 +795,7 @@ export default function SwapBox() {
     });
 
     const { address, isConnected } = useAccount();
-    const { postDelegationData } = useAPI();
+    const { postDelegationData } = useAuth();
 
     const [selectedSmartAccount, setSelectedSmartAccount] = useState({});
     const [allSmartAccounts, setAllSmartAccounts] = useState([]);

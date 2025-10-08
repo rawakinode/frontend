@@ -24,8 +24,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { MoreVertical, AlertCircle, Unplug, Loader2, X, CheckCircle, XCircle } from "lucide-react";
 import { useAccount } from "wagmi";
 import { getSmartAccounts } from "@/hooks/useSmartAccount";
-import { useAPI } from "@/hooks/useAPI";
 import CooldownTime from "@/components/features/CooldownTime";
+import { useAuth } from "@/context/AuthContext";
 
 const typeColor = {
     immediately: "bg-green-700",
@@ -214,7 +214,7 @@ export default function Task() {
 
     const statuses = ["all", "active", "failed", "completed", "canceled"];
 
-    const { getDelegationDataFromAPI, cancelDelegationTask } = useAPI();
+    const { getDelegationDataFromAPI, cancelDelegationTask } = useAuth();
 
     // wagmi
     const { address, isConnected } = useAccount();
