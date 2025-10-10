@@ -28,6 +28,9 @@ export function Header() {
   const menu = [
     { name: "Swap", path: "/swap", icon: <ArrowDownUp className="w-4 h-4" /> },
     { name: "Task", path: "/task", icon: <ListTodo className="w-4 h-4" /> },
+    // { name: "Subscribe", path: "/subscribeswap", icon: <ArrowDownUp className="w-4 h-4" /> },
+    { name: "Convert", path: "/convert", icon: <ArrowDownUp className="w-4 h-4" /> },
+
     { name: "Smart Account", path: "/smartwallet", icon: <Wallet className="w-4 h-4" /> },
   ]
 
@@ -54,8 +57,8 @@ export function Header() {
                     <Link
                       to={item.path}
                       className={`flex items-center gap-1.5 px-2 py-1 transition-colors ${location.pathname === item.path
-                          ? "text-primary font-semibold border-b-2 border-primary"
-                          : "text-muted-foreground hover:text-foreground"
+                        ? "text-primary font-semibold border-b-2 border-primary"
+                        : "text-muted-foreground hover:text-foreground"
                         }`}
                     >
                       {item.icon}

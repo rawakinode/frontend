@@ -451,7 +451,7 @@ export default function Task() {
                 className="max-w-[400px] w-full mx-auto bg-card backdrop-blur-xl rounded-3xl p-6 border border-card shadow-2xl mt-10"
             >
                 <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-md font-bold">Tasks</h2>
+                    <h3 className="text-xl font-semibold">Tasks</h3>
                 </div>
 
                 {/* Smart Account and Status Selection */}

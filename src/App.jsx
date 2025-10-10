@@ -9,13 +9,10 @@ import { Swap } from './pages/Swap';
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Task from './pages/Task';
 import SmartWallet from './pages/SmartWallet';
-// import { useAuth } from './hooks/useAuth';
-import { useAuth } from "@/context/AuthContext";
+import SubscribeSwap from './pages/SubscribeSwap'; 
+import BatchConvertSwap from './pages/BatchConvertSwap';
 
 function App() {
-
-  // const { token, userData, loading, isConnected, handleLogout } = useAuth();
-  
   return (
     <TooltipProvider>
       <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
@@ -26,6 +23,8 @@ function App() {
             <Routes>
               <Route path="/" element={<Swap />} />
               <Route path="/swap" element={<Swap />} />
+              <Route path="/subscribeswap" element={<SubscribeSwap />} />
+              <Route path="/convert" element={<BatchConvertSwap />} />
               <Route path="/task" element={<Task />} />
               <Route path="/smartwallet" element={<SmartWallet />} />
             </Routes>

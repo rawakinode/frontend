@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 
 import { useAccount } from "wagmi"
-import { getVerifiedTokenWithBalance, defaultSwapFromTo, getSwapQuote, getBalances } from "@/hooks/useMonorail";
+import { getVerifiedTokenWithBalance, defaultSwapFromTo, getSwapQuote, getBalances, getBalancesAllToken } from "@/hooks/useMonorail";
 import { zeroAddress } from "viem";
 import { formatBalance } from "@/lib/formatBalance";
 
@@ -52,7 +52,6 @@ import axios from "axios";
 import { getSmartAccounts } from "@/hooks/useSmartAccount";
 import { swapERC20ToMon, swapMonToERC20 } from "@/hooks/useWallet";
 import { createSwapDelegation } from "@/hooks/useDelegation";
-import { useAPI } from "@/hooks/useAPI";
 
 // Import token list dari file lokal
 import { tokens } from "@/config/tokens";
@@ -527,9 +526,12 @@ function TaskQueuedPopup({
     );
 }
 
-function TokenSelect({ selected, onChange, disabled }) {
+// 🎯 PERUBAHAN PENTING: TokenSelect dengan saldo dan pengurutan
+function TokenSelect({ selected, onChange, disabled, selectedSmartAccount }) {
     const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
+    const [tokensWithBalance, setTokensWithBalance] = useState([]);
+    const [loadingBalances, setLoadingBalances] = useState(false);
 
     const handleSearch = (value) => {
         setSearch(value);
@@ -540,6 +542,64 @@ function TokenSelect({ selected, onChange, disabled }) {
         setOpen(false);
         setSearch("");
     };
+
+    // 🎯 PERUBAHAN PENTING: Fetch balances ketika popup dibuka
+    useEffect(() => {
+        const fetchTokenBalances = async () => {
+            if (!open || !selectedSmartAccount?.address) {
+                // Jika popup tertutup atau tidak ada smart account, reset ke token list biasa
+                setTokensWithBalance(tokens.map(token => ({ ...token, balance: "0", balanceFormatted: "0" })));
+                return;
+            }
+
+            setLoadingBalances(true);
+            try {
+                const allBalances = await getBalancesAllToken(selectedSmartAccount.address);
+
+                // Gabungkan data token dengan balance
+                const enrichedTokens = tokens.map(token => {
+                    // Cari balance yang sesuai dari API response
+                    const balanceData = allBalances.find(b =>
+                        b.address.toLowerCase() === token.address.toLowerCase()
+                    );
+
+                    return {
+                        ...token,
+                        balance: balanceData?.balance || "0",
+                        balanceFormatted: balanceData ? formatBalance(balanceData.balance) : "0"
+                    };
+                });
+
+                // 🎯 PERUBAHAN PENTING: Urutkan token berdasarkan balance (yang ada balance di atas)
+                const sortedTokens = [...enrichedTokens].sort((a, b) => {
+                    const balanceA = parseFloat(a.balance);
+                    const balanceB = parseFloat(b.balance);
+
+                    // Token dengan balance > 0 di atas, diurutkan dari balance terbesar ke terkecil
+                    if (balanceA > 0 && balanceB > 0) {
+                        return balanceB - balanceA;
+                    } else if (balanceA > 0) {
+                        return -1;
+                    } else if (balanceB > 0) {
+                        return 1;
+                    } else {
+                        // Jika kedua token balance 0, pertahankan urutan asli
+                        return tokens.indexOf(a) - tokens.indexOf(b);
+                    }
+                });
+
+                setTokensWithBalance(sortedTokens);
+            } catch (error) {
+                console.error("Failed to fetch token balances:", error);
+                // Jika gagal, tetap tampilkan token list tanpa balance
+                setTokensWithBalance(tokens.map(token => ({ ...token, balance: "0", balanceFormatted: "0" })));
+            } finally {
+                setLoadingBalances(false);
+            }
+        };
+
+        fetchTokenBalances();
+    }, [open, selectedSmartAccount]);
 
     function TokenItem({ token, onSelect, isSelected }) {
         return (
@@ -572,16 +632,22 @@ function TokenSelect({ selected, onChange, disabled }) {
                         <div className="text-sm text-muted-foreground truncate">{token?.name}</div>
                     </div>
                 </div>
-                <div className="flex items-center gap-2">
-                    {isSelected && (
-                        <Check className="w-4 h-4 text-green-400" />
-                    )}
+                <div className="flex items-center gap-2 flex-col items-end">
+                    {/* 🎯 PERUBAHAN PENTING: Tampilkan balance */}
+                    <span className="text-xs font-medium text-muted-foreground">
+                        {parseFloat(token.balance) > 0 ? token.balanceFormatted : ""}
+                    </span>
+                    <div className="flex items-center gap-2">
+                        {isSelected && (
+                            <Check className="w-4 h-4 text-green-400" />
+                        )}
+                    </div>
                 </div>
             </button>
         );
     }
 
-    const filteredTokens = tokens.filter(token =>
+    const filteredTokens = tokensWithBalance.filter(token =>
         token?.symbol?.toLowerCase().includes(search.toLowerCase()) ||
         token?.name?.toLowerCase().includes(search.toLowerCase())
     );
@@ -638,7 +704,12 @@ function TokenSelect({ selected, onChange, disabled }) {
                 </div>
 
                 <div className="max-h-96 overflow-y-auto">
-                    {filteredTokens.length > 0 ? (
+                    {loadingBalances ? (
+                        <div className="flex justify-center items-center py-8">
+                            <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            <span className="ml-2 text-sm text-muted-foreground">Loading balances...</span>
+                        </div>
+                    ) : filteredTokens.length > 0 ? (
                         <div className="divide-y divide-white/10">
                             {filteredTokens.map((token) => (
                                 <TokenItem
@@ -797,8 +868,10 @@ export default function SwapBox() {
     const { address, isConnected } = useAccount();
     const { postDelegationData } = useAuth();
 
-    const [selectedSmartAccount, setSelectedSmartAccount] = useState({});
+    // 🎯 PERUBAHAN PENTING: Tambah loading state dan null safety untuk smart account
+    const [selectedSmartAccount, setSelectedSmartAccount] = useState(null);
     const [allSmartAccounts, setAllSmartAccounts] = useState([]);
+    const [loadingSmartAccounts, setLoadingSmartAccounts] = useState(false);
 
     const [selectedSwapType, setSelectedSwapType] = useState("immediately");
     const [dateScheduled, setDateScheduled] = useState(new Date());
@@ -847,8 +920,42 @@ export default function SwapBox() {
         setSelectedLimitOption(option.label);
     }, [calculateNewDate]);
 
+    // 🎯 PERUBAHAN PENTING: Fetch smart accounts dengan loading state dan auto-select
+    useEffect(() => {
+        const fetchSmartAccounts = async () => {
+            if (!isConnected) {
+                setAllSmartAccounts([]);
+                setSelectedSmartAccount(null);
+                setLoadingSmartAccounts(false);
+                return;
+            }
+
+            setLoadingSmartAccounts(true);
+            try {
+                const sa = await getSmartAccounts(false);
+                setAllSmartAccounts(sa);
+
+                // 🎯 PERUBAHAN PENTING: Otomatis pilih smart account pertama jika tersedia
+                if (sa.length > 0) {
+                    setSelectedSmartAccount(sa[0]);
+                } else {
+                    setSelectedSmartAccount(null);
+                }
+            } catch (err) {
+                console.error(err);
+                setAllSmartAccounts([]);
+                setSelectedSmartAccount(null);
+            } finally {
+                setLoadingSmartAccounts(false);
+            }
+        };
+
+        fetchSmartAccounts();
+    }, [address, isConnected]);
+
+    // Fetch balances - MODIFIED dengan null safety check
     const fetchBalances = async () => {
-        if (!isConnected || !selectedSmartAccount.address) {
+        if (!isConnected || !selectedSmartAccount?.address) {
             setFromBalance("0");
             setToBalance("0");
             return;
@@ -871,27 +978,9 @@ export default function SwapBox() {
         fetchBalances();
     }, [fromToken, toToken, address, selectedSmartAccount, isConnected]);
 
+    // Fetch quote - MODIFIED dengan null safety check
     useEffect(() => {
-        (async () => {
-            try {
-                if (isConnected) {
-                    const sa = await getSmartAccounts(false);
-                    if (sa.length > 0) {
-                        setAllSmartAccounts(sa);
-                        setFromBalance("0");
-                        setToBalance("0");
-                        setFromAmount("");
-                        setToAmount("")
-                    }
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        })();
-    }, [address]);
-
-    useEffect(() => {
-        if (!fromAmount || parseFloat(fromAmount) <= 0) {
+        if (!fromAmount || parseFloat(fromAmount) <= 0 || !selectedSmartAccount?.address) {
             setToAmount("");
             setExchangeRate(0);
             setQuoteData({});
@@ -937,13 +1026,14 @@ export default function SwapBox() {
         };
     }, [fromAmount, fromToken, toToken, settings.slippage, settings.deadline, address, selectedSmartAccount]);
 
+    // 🎯 PERUBAHAN PENTING: Update swapDisabled dengan null safety check
     const swapDisabled = useMemo(() => {
         if (!isConnected) return true;
         if (fromToken?.symbol === toToken?.symbol) return true;
         if (!fromAmount || parseFloat(fromAmount) <= 0) return true;
         if (!toAmount || parseFloat(toAmount) <= 0) return true;
         if (quoteLoading) return true;
-        if (!selectedSmartAccount.address) return true;
+        if (!selectedSmartAccount?.address) return true;
         if (loading) return true;
         if (selectedSwapType == 'price') {
             if (Number(swapLimitPrice) < Number(exchangeRate)) return true;
@@ -952,7 +1042,10 @@ export default function SwapBox() {
         return false;
     }, [isConnected, fromToken, toToken, fromAmount, toAmount, quoteLoading, selectedSmartAccount, loading, fromBalanceWallet]);
 
+    // 🎯 PERUBAHAN PENTING: Update executeSwap dengan null safety check
     const executeSwap = useCallback(async () => {
+        if (!selectedSmartAccount?.salt) return;
+
         setLoading(true);
         setShowConfirmationPopup(false);
 
@@ -1071,9 +1164,10 @@ export default function SwapBox() {
         setToAmount(fromAmount);
     }, [fromToken, toToken, fromAmount, toAmount]);
 
+    // 🎯 PERUBAHAN PENTING: Handle account change dengan null safety
     const handleAccountChange = useCallback((val) => {
         const selected = allSmartAccounts.find(acc => acc.address === val);
-        setSelectedSmartAccount(selected);
+        setSelectedSmartAccount(selected || null);
         setFromAmount("");
         setToAmount("");
     }, [allSmartAccounts]);
@@ -1095,9 +1189,20 @@ export default function SwapBox() {
                     <h3 className="text-xl font-semibold">Swap</h3>
                     <div className="flex items-center gap-2">
                         {isConnected && (
-                            <Select onValueChange={handleAccountChange}>
+                            <Select
+                                onValueChange={handleAccountChange}
+                                value={selectedSmartAccount?.address || ""}
+                                disabled={loadingSmartAccounts}
+                            >
                                 <SelectTrigger className="w-[180px] text-xs">
-                                    <SelectValue placeholder="Smart Account" />
+                                    {loadingSmartAccounts ? (
+                                        <div className="flex items-center gap-2">
+                                            <Loader2 className="w-3 h-3 animate-spin" />
+                                            <span>Loading accounts...</span>
+                                        </div>
+                                    ) : (
+                                        <SelectValue placeholder="Select Smart Account" />
+                                    )}
                                 </SelectTrigger>
                                 <SelectContent>
                                     {allSmartAccounts?.map((acc, idx) => (
@@ -1113,6 +1218,7 @@ export default function SwapBox() {
                             size="icon"
                             onClick={() => setShowSettings(true)}
                             className="rounded-full"
+                            disabled={!selectedSmartAccount}
                         >
                             <SlidersHorizontal className="w-5 h-5" />
                         </Button>
@@ -1129,6 +1235,7 @@ export default function SwapBox() {
                                     key={val}
                                     onClick={() => handleMax(val)}
                                     className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded hover:bg-blue-500/30 transition-colors"
+                                    disabled={!selectedSmartAccount}
                                 >
                                     {val === 1 ? 'Max' : `${val * 100}%`}
                                 </button>
@@ -1143,7 +1250,9 @@ export default function SwapBox() {
                             value={fromAmount}
                             onChange={(e) => setFromAmount(e.target.value)}
                             className="md:text-2xl text-2xl font-semibold border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
+                            disabled={!selectedSmartAccount}
                         />
+                        {/* 🎯 PERUBAHAN PENTING: Tambah prop selectedSmartAccount ke TokenSelect */}
                         <TokenSelect
                             selected={fromToken}
                             onChange={(token) => {
@@ -1156,10 +1265,13 @@ export default function SwapBox() {
                                     setFromToken(token);
                                 }
                             }}
+                            disabled={!selectedSmartAccount}
+                            selectedSmartAccount={selectedSmartAccount}
                         />
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">
                         Balance: {formatBalance(fromBalanceWallet)} {fromToken?.symbol}
+                        {!selectedSmartAccount && " - Select a smart account first"}
                     </div>
                 </div>
 
@@ -1168,6 +1280,7 @@ export default function SwapBox() {
                     <button
                         onClick={swapTokens}
                         className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors border-1 border-black/90"
+                        disabled={!selectedSmartAccount}
                     >
                         <ArrowDownUp className="w-4 h-4" />
                     </button>
@@ -1184,6 +1297,7 @@ export default function SwapBox() {
                             readOnly
                             className="md:text-2xl text-2xl font-semibold border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
                         />
+                        {/* 🎯 PERUBAHAN PENTING: Tambah prop selectedSmartAccount ke TokenSelect */}
                         <TokenSelect
                             selected={toToken}
                             onChange={(token) => {
@@ -1196,10 +1310,13 @@ export default function SwapBox() {
                                     setToToken(token);
                                 }
                             }}
+                            disabled={!selectedSmartAccount}
+                            selectedSmartAccount={selectedSmartAccount}
                         />
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">
                         Balance: {formatBalance(toBalanceWallet)} {toToken?.symbol}
+                        {!selectedSmartAccount && " - Select a smart account first"}
                     </div>
                 </div>
 
@@ -1401,8 +1518,8 @@ export default function SwapBox() {
                                 <Loader2 className="w-4 h-4 animate-spin" />
                                 Swapping...
                             </>
-                        ) : isConnected && !selectedSmartAccount?.address ? (
-                            "Select Smart Account"
+                        ) : !selectedSmartAccount ? (
+                            "Select Smart Account First"
                         ) : isConnected ? (
                             parseFloat(fromAmount) > parseFloat(fromBalanceWallet) ? (
                                 `Insufficient Balance`

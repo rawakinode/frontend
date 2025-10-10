@@ -105,7 +105,7 @@ async function createSmartAccountForWithdrawal(walletClient, ownerAddress, salt)
  */
 async function withdrawNativeToken(smartAccount, recipientAddress, amount) {
     const fee = await getGasPrice();
-    
+
     const userOperationHash = await bundlerClient.sendUserOperation({
         account: smartAccount,
         calls: [{
@@ -124,7 +124,7 @@ async function withdrawNativeToken(smartAccount, recipientAddress, amount) {
  */
 async function withdrawERC20Token(smartAccount, recipientAddress, amount, erc20Address, decimals) {
     const fee = await getGasPrice();
-    
+
     const userOperationHash = await bundlerClient.sendUserOperation({
         account: smartAccount,
         calls: [
@@ -195,7 +195,7 @@ export async function swapERC20ToMon(quoteData, salt) {
         const fee = await getGasPrice();
 
         const userOperationHash = await executeERC20ToNativeSwap(
-            smartAccount, 
+            smartAccount,
             quoteData
         );
 
@@ -234,4 +234,50 @@ async function executeERC20ToNativeSwap(smartAccount, quoteData) {
         ],
         ...(await getGasPrice())
     });
+}
+
+
+export async function batchSwapERC20ToMon(quoteData, salt) {
+    try {
+
+        
+        const swapData = quoteData.map(q => ({
+            to: q.quoteData.transaction.to,
+            value: 0n,
+            data: q.quoteData.transaction.data
+        }));
+
+        console.log(swapData);
+
+        const approveData = quoteData.map(q => ({
+            to: q.tokenAddress,
+            value: 0n,
+            data: encodeFunctionData({
+                abi: erc20Abi,
+                functionName: "approve",
+                args: [SWAP_CONTRACT, BigInt(q.quoteData.input)],
+            })
+        }));
+
+        console.log(approveData);
+
+
+        const smartAccount = await importSmartAccountWithSalt(salt);
+        const fee = await getGasPrice();
+
+        const calls = [...approveData, ...swapData];
+
+        const userOperationHash = await bundlerClient.sendUserOperation({
+            account: smartAccount,
+            calls: calls,
+            ...fee
+        });
+
+        const { receipt } = await bundlerClient.waitForUserOperationReceipt({ hash: userOperationHash });
+        return receipt.transactionHash;
+
+    } catch (error) {
+        console.error("Swap ERC20 to MON error:", error);
+        return null;
+    }
 }
