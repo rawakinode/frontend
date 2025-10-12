@@ -11,6 +11,7 @@ import Task from './pages/Task';
 import SmartWallet from './pages/SmartWallet';
 import SubscribeSwap from './pages/SubscribeSwap'; 
 import BatchConvertSwap from './pages/BatchConvertSwap';
+import MySubscription from './pages/MySubscription';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
               <Route path="/" element={<Swap />} />
               <Route path="/swap" element={<Swap />} />
               <Route path="/subscribeswap" element={<SubscribeSwap />} />
+              <Route path="/mysubscription" element={<MySubscription />} />
               <Route path="/convert" element={<BatchConvertSwap />} />
               <Route path="/task" element={<Task />} />
               <Route path="/smartwallet" element={<SmartWallet />} />

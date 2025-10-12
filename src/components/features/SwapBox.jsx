@@ -1271,7 +1271,6 @@ export default function SwapBox() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">
                         Balance: {formatBalance(fromBalanceWallet)} {fromToken?.symbol}
-                        {!selectedSmartAccount && " - Select a smart account first"}
                     </div>
                 </div>
 
@@ -1316,7 +1315,7 @@ export default function SwapBox() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">
                         Balance: {formatBalance(toBalanceWallet)} {toToken?.symbol}
-                        {!selectedSmartAccount && " - Select a smart account first"}
+                       
                     </div>
                 </div>
 

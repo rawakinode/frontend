@@ -76,7 +76,7 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
-  // 🧩 Fungsi delegasi (semua pakai token dari context)
+  // 📤 Post delegation data ke API
   const postDelegationData = async (delegationData) => {
     if (!token) throw new Error("User not authenticated");
     const res = await axios.post(`${API_BASE}/api/send_delegation`, delegationData, {
@@ -85,6 +85,7 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
+  // 📥 Ambil delegation data dari API
   const getDelegationDataFromAPI = async (smart_account) => {
     if (!token) throw new Error("User not authenticated");
     const res = await axios.post(`${API_BASE}/api/delegations`, { smart_account }, {
@@ -93,9 +94,45 @@ export function AuthProvider({ children }) {
     return res.data;
   };
 
+  // ❌ Batalkan delegation task
   const cancelDelegationTask = async (_id) => {
     if (!token) throw new Error("User not authenticated");
     const res = await axios.post(`${API_BASE}/api/cancel_delegation`, { _id }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  };
+
+  // 📤 Post subscribe delegation data ke API - DIPERBAIKI: handle error response dengan baik
+  const postSubscribeDelegationData = async (delegationData) => {
+    if (!token) throw new Error("User not authenticated");
+    try {
+      const res = await axios.post(`${API_BASE}/api/send_subscribe_delegation`, delegationData, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      });
+      return res.data;
+    } catch (error) {
+      // Lempar error response dari server agar bisa ditangani di component
+      if (error.response && error.response.data) {
+        throw error.response.data;
+      }
+      throw error;
+    }
+  };
+
+  // 📋 Ambil subscription data dari API
+  const getSubscriptionDataFromAPI = async (smart_account) => {
+    if (!token) throw new Error("User not authenticated");
+    const res = await axios.post(`${API_BASE}/api/subscriptions`, { smart_account }, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.data;
+  };
+
+  // ❌ Batalkan subscription
+  const cancelSubscription = async (_id) => {
+    if (!token) throw new Error("User not authenticated");
+    const res = await axios.post(`${API_BASE}/api/cancel_subscription`, { _id }, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return res.data;
@@ -166,9 +203,12 @@ export function AuthProvider({ children }) {
         getNonce,
         getUserData,
         postDelegationData,
+        postSubscribeDelegationData,
         getDelegationDataFromAPI,
         cancelDelegationTask,
         getHealth,
+        getSubscriptionDataFromAPI,
+        cancelSubscription,
       }}
     >
       {children}

@@ -468,8 +468,8 @@ export default function BatchConvertSwap() {
     const [showErrorPopup, setShowErrorPopup] = useState(false);
     const [showWarningPopup, setShowWarningPopup] = useState(false);
     const [errorData, setErrorData] = useState({ title: "", description: "" });
-    const [warningData, setWarningData] = useState({ 
-        title: "", 
+    const [warningData, setWarningData] = useState({
+        title: "",
         description: "",
         failedTokens: [],
         successfulTokens: []
@@ -500,7 +500,7 @@ export default function BatchConvertSwap() {
             try {
                 const sa = await getSmartAccounts(false);
                 setAllSmartAccounts(sa);
-                
+
                 // 🎯 PERUBAHAN PENTING: Otomatis pilih smart account pertama jika tersedia
                 if (sa.length > 0) {
                     setSelectedSmartAccount(sa[0]);
@@ -532,7 +532,7 @@ export default function BatchConvertSwap() {
 
         try {
             const allTokens = await getBalancesAllToken(selectedSmartAccount.address);
-            
+
             // Filter dan cocokkan dengan token list
             const filteredTokens = allTokens
                 .filter((token, index) => index !== 0) // Hapus native MON yang ada di index 0
@@ -544,7 +544,7 @@ export default function BatchConvertSwap() {
                 })
                 .map(apiToken => {
                     // Cari token yang sesuai dalam token list berdasarkan address
-                    const matchedToken = tokens.find(tokenListItem => 
+                    const matchedToken = tokens.find(tokenListItem =>
                         tokenListItem.address.toLowerCase() === apiToken.address.toLowerCase()
                     );
 
@@ -729,7 +729,7 @@ export default function BatchConvertSwap() {
 
     // Can convert if there are selected tokens with successful quotes
     const canConvert = useMemo(() => {
-        const successfulTokens = selectedTokens.filter(address => 
+        const successfulTokens = selectedTokens.filter(address =>
             conversionQuotes[address]?.success === true
         );
         return successfulTokens.length > 0 &&
@@ -740,14 +740,14 @@ export default function BatchConvertSwap() {
 
     // Get count of successful tokens
     const successfulTokensCount = useMemo(() => {
-        return selectedTokens.filter(address => 
+        return selectedTokens.filter(address =>
             conversionQuotes[address]?.success === true
         ).length;
     }, [selectedTokens, conversionQuotes]);
 
     // Get count of failed tokens
     const failedTokensCount = useMemo(() => {
-        return selectedTokens.filter(address => 
+        return selectedTokens.filter(address =>
             conversionQuotes[address] && !conversionQuotes[address]?.success
         ).length;
     }, [selectedTokens, conversionQuotes]);
@@ -773,7 +773,7 @@ export default function BatchConvertSwap() {
     // 🎯 PERUBAHAN PENTING: Execute batch conversion menggunakan batchSwapERC20ToMon
     const executeBatchConversion = async () => {
         if (!selectedSmartAccount?.address || !selectedSmartAccount?.salt) return;
-        
+
         setConverting(true);
 
         try {
@@ -850,7 +850,7 @@ export default function BatchConvertSwap() {
                     </div>
                     <div className="flex items-center gap-2">
                         {isConnected && (
-                            <Select 
+                            <Select
                                 onValueChange={handleAccountChange}
                                 value={selectedSmartAccount?.address || ""}
                                 disabled={loadingSmartAccounts}
@@ -890,7 +890,7 @@ export default function BatchConvertSwap() {
                             />
                         </div>
                         <p className="text-xs text-muted-foreground">
-                            {selectedSmartAccount 
+                            {selectedSmartAccount
                                 ? `${targetToken.symbol} will be excluded from detected tokens`
                                 : "Select a smart account first"
                             }
@@ -946,19 +946,18 @@ export default function BatchConvertSwap() {
                                     const isSelected = selectedTokens.includes(token.address);
                                     const hasQuote = quote !== undefined;
                                     const isQuoteSuccessful = quote?.success;
-                                    
+
                                     return (
                                         <div
                                             key={token.address}
-                                            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${
-                                                isSelected 
-                                                    ? isQuoteSuccessful 
-                                                        ? "bg-green-500/10 border border-green-500/20" 
-                                                        : hasQuote && !isQuoteSuccessful 
+                                            className={`flex items-center gap-3 p-3 rounded-lg transition-colors ${isSelected
+                                                    ? isQuoteSuccessful
+                                                        ? "bg-green-500/10 border border-green-500/20"
+                                                        : hasQuote && !isQuoteSuccessful
                                                             ? "bg-red-500/10 border border-red-500/20"
                                                             : "bg-white/5 hover:bg-white/10"
                                                     : "bg-white/5 hover:bg-white/10"
-                                            }`}
+                                                }`}
                                         >
                                             <Checkbox
                                                 checked={isSelected}
@@ -976,7 +975,7 @@ export default function BatchConvertSwap() {
                                                         }}
                                                     />
                                                 ) : null}
-                                                <span 
+                                                <span
                                                     className="text-xs font-medium text-white"
                                                     style={{ display: token?.image_url ? 'none' : 'flex' }}
                                                 >

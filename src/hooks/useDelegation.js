@@ -1,4 +1,4 @@
-import { DELEGATOR_ADDRESS, MONORAIL_AGREGATE, MONORAIL_CONTRACT, DELEGATOR_ADDRESS_PRICE } from "@/config/contract";
+import { DELEGATOR_ADDRESS, MONORAIL_AGREGATE, MONORAIL_CONTRACT, DELEGATOR_ADDRESS_PRICE, DELEGATOR_ADDRESS_AUTOBUY } from "@/config/contract";
 import { BalanceChangeType, createDelegation } from "@metamask/delegation-toolkit";
 import { importSmartAccountWithSalt } from "./useSmartAccount";
 import { encodeFunctionData, erc20Abi, parseUnits, zeroAddress } from "viem";
@@ -545,5 +545,204 @@ async function createAprovedDelegate(smartAccount, fromAmount, fromContract, swa
     } catch (error) {
         console.error('Error creating approval delegation:', error);
         return null;
+    }
+}
+// Duration Options for subscription calculation
+const DURATION_OPTIONS = [
+    { label: "1 Day", value: "1day", days: 1 },
+    { label: "1 Week", value: "1week", days: 7 },
+    { label: "2 Weeks", value: "2weeks", days: 14 },
+    { label: "1 Month", value: "1month", days: 30 },
+    { label: "3 Months", value: "3months", days: 90 },
+    { label: "6 Months", value: "6months", days: 180 },
+    { label: "1 Year", value: "1year", days: 365 },
+    { label: "Indefinite", value: "indefinite", days: null }
+];
+
+// Updated Frequency mapping to seconds based on component
+const FREQUENCY_SECONDS = {
+    "1hour": 1 * 60 * 60,                    // 1 hour in seconds
+    "12hours": 12 * 60 * 60,                 // 12 hours in seconds
+    "daily": 24 * 60 * 60,                   // 1 day in seconds
+    "3days": 3 * 24 * 60 * 60,               // 3 days in seconds
+    "weekly": 7 * 24 * 60 * 60,              // 1 week in seconds
+    "biweekly": 14 * 24 * 60 * 60,           // 2 weeks in seconds
+    "monthly": 30 * 24 * 60 * 60,            // 1 month in seconds (30 days)
+    "custom": null // Will be calculated from customInterval
+};
+
+export async function createSubscribeDelegation(postSubscribeDelegationData, smartAccountObj, subscriptionData, address) {
+    try {
+        console.log('Creating subscription delegation with data:', subscriptionData);
+
+        const smartAccount = await importSmartAccountWithSalt(smartAccountObj.salt);
+
+        // Parse amount to wei based on payment token decimals
+        const amountWei = parseUnits(subscriptionData.amount.toString(), subscriptionData.paymentToken.decimals);
+
+        // Calculate start and end timestamps
+        const startDate = new Date();
+        let endDate = new Date();
+
+        // Calculate end date based on duration
+        const durationOption = DURATION_OPTIONS.find(d => d.value === subscriptionData.duration);
+        let durationInSecond = null;
+
+        if (durationOption && durationOption.days) {
+            endDate.setDate(endDate.getDate() + durationOption.days);
+            durationInSecond = durationOption.days * 24 * 60 * 60; // Convert days to seconds
+        } else if (subscriptionData.duration === "indefinite") {
+            // Set end date to 10 years from now for indefinite subscriptions
+            endDate.setFullYear(endDate.getFullYear() + 10);
+            durationInSecond = 10 * 365 * 24 * 60 * 60; // 10 years in seconds
+        }
+
+        const startTimestamp = Math.floor(startDate.getTime() / 1000);
+        const endTimestamp = Math.floor(endDate.getTime() / 1000);
+
+        // Convert nextExecution string to timestamp
+        const nextExecutionTimestamp = subscriptionData.nextExecutionTimestamp;
+
+        // Calculate frequency in seconds based on component logic
+        let frequencyInSecond;
+        let customIntervalInSecond = null;
+
+        if (subscriptionData.frequency === "custom" && subscriptionData.customInterval) {
+            // Handle custom interval with days and hours
+            const days = subscriptionData.customInterval.days || 0;
+            const hours = subscriptionData.customInterval.hours || 0;
+            const totalHours = (days * 24) + hours;
+            customIntervalInSecond = totalHours * 60 * 60;
+            frequencyInSecond = customIntervalInSecond;
+        } else {
+            // Use predefined frequency mapping
+            frequencyInSecond = FREQUENCY_SECONDS[subscriptionData.frequency] || 0;
+        }
+
+        console.log('Timestamps - Start:', startTimestamp, 'End:', endTimestamp,
+            'Next Execution:', nextExecutionTimestamp,
+            'Duration in seconds:', durationInSecond,
+            'Frequency in seconds:', frequencyInSecond,
+            'Custom Interval in seconds:', customIntervalInSecond);
+
+        // Determine if it's native token swap
+        const isNativePayment = subscriptionData.paymentToken.address.toLowerCase() === zeroAddress.toLowerCase();
+
+        let signedSwapDelegation;
+        let signedApproveDelegation = {};
+
+        // Handle ERC20 token approval first if not native
+        if (!isNativePayment) {
+            try {
+                const callData = encodeFunctionData({
+                    abi: erc20Abi,
+                    functionName: "approve",
+                    args: [MONORAIL_CONTRACT, amountWei],
+                });
+
+                const approvalCaveats = [
+                    {
+                        type: "allowedTargets",
+                        targets: [subscriptionData.paymentToken.address]
+                    },
+                    {
+                        type: "limitedCalls",
+                        limit: subscriptionData.totalExecutions,
+                    }
+                ];
+
+                const approvalDelegation = createDelegation({
+                    to: DELEGATOR_ADDRESS_AUTOBUY,
+                    from: smartAccount.address,
+                    environment: smartAccount.environment,
+                    scope: {
+                        type: "functionCall",
+                        targets: [subscriptionData.paymentToken.address],
+                        selectors: ["approve(address, uint256)"],
+                        allowedCalldata: [
+                            { startIndex: 0, value: callData }
+                        ]
+                    },
+                    caveats: approvalCaveats
+                });
+
+                console.log(approvalDelegation);
+
+                const approvalSignature = await smartAccount.signDelegation({ delegation: approvalDelegation });
+                signedApproveDelegation = { ...approvalDelegation, signature: approvalSignature };
+            } catch (error) {
+                console.error('Error creating approval delegation:', error);
+                throw new Error("Failed to create approval delegation");
+            }
+        }
+
+        // Create swap delegation based on token type
+        const swapCaveats = [
+            {
+                type: "limitedCalls",
+                limit: subscriptionData.totalExecutions,
+            },
+            {
+                type: "allowedTargets",
+                targets: [MONORAIL_CONTRACT]
+            },
+            {
+                type: "timestamp",
+                afterThreshold: startTimestamp,
+                beforeThreshold: endTimestamp
+            }
+        ];
+
+        const swapDelegation = createDelegation({
+            to: DELEGATOR_ADDRESS_AUTOBUY,
+            from: smartAccount.address,
+            environment: smartAccount.environment,
+            scope: {
+                type: "functionCall",
+                targets: [MONORAIL_CONTRACT],
+                selectors: [MONORAIL_AGREGATE],
+            },
+            caveats: swapCaveats
+        });
+
+        const swapSignature = await smartAccount.signDelegation({ delegation: swapDelegation });
+        signedSwapDelegation = { ...swapDelegation, signature: swapSignature };
+
+        // Prepare subscription payload according to your data structure
+        const payload = {
+            type: subscriptionData.type || "subscription",
+            frequency: subscriptionData.frequency,
+            customInterval: subscriptionData.customInterval,
+            customIntervalInSecond: customIntervalInSecond,
+            duration: subscriptionData.duration,
+            amount: amountWei.toString(),
+            amount_formatted: subscriptionData.amount,
+            paymentToken: subscriptionData.paymentToken,
+            targetToken: subscriptionData.targetToken,
+            settings: subscriptionData.settings,
+            nextExecution: subscriptionData.nextExecution,
+            nextExecutionTimestamp: subscriptionData.nextExecutionTimestamp,
+            totalExecutions: subscriptionData.totalExecutions,
+            startTimestamp: startTimestamp,
+            endTimestamp: endTimestamp,
+            durationInSecond: durationInSecond,
+            frequencyInSecond: frequencyInSecond,
+            owner_address: address,
+            smart_account: smartAccount.address,
+            signedSwapDelegation,
+            signedApproveDelegation,
+            status: "active",
+            executed: 0
+        };
+
+        console.log('Final subscription payload:', payload);
+
+        // Send to backend using the provided function
+        const res = await postSubscribeDelegationData(payload);
+        return res;
+
+    } catch (error) {
+        console.error('Error creating subscription delegation:', error);
+        throw error;
     }
 }

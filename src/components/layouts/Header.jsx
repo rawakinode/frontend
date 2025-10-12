@@ -1,5 +1,5 @@
 import { Link, useLocation } from "react-router-dom";
-import { Menu, ListTodo, Wallet, ArrowDownUp } from "lucide-react";
+import { Menu, ListTodo, Wallet, ArrowDownUp, Zap, Layers } from "lucide-react";
 
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 
@@ -26,12 +26,12 @@ export function Header() {
 
   // base menu
   const menu = [
-    { name: "Swap", path: "/swap", icon: <ArrowDownUp className="w-4 h-4" /> },
-    { name: "Task", path: "/task", icon: <ListTodo className="w-4 h-4" /> },
-    // { name: "Subscribe", path: "/subscribeswap", icon: <ArrowDownUp className="w-4 h-4" /> },
-    { name: "Convert", path: "/convert", icon: <ArrowDownUp className="w-4 h-4" /> },
-
-    { name: "Smart Account", path: "/smartwallet", icon: <Wallet className="w-4 h-4" /> },
+    { name: "Swap", path: "/swap", icon: <Zap className="w-4 h-4" /> },
+    { name: "Subscription", path: "/subscribeswap", icon: <ArrowDownUp className="w-4 h-4" /> },
+    { name: "Swap Task", path: "/task", icon: <ListTodo className="w-4 h-4" /> },
+    { name: "Subsc. Task", path: "/mysubscription", icon: <ListTodo className="w-4 h-4" /> },
+    { name: "Convert", path: "/convert", icon: <Layers className="w-4 h-4" /> },
+    { name: "Account", path: "/smartwallet", icon: <Wallet className="w-4 h-4" /> },
   ]
 
   return (

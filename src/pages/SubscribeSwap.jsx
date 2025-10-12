@@ -1,7 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-
-import { Badge } from "@/components/ui/badge"
+import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,9 +25,6 @@ import {
     AlertCircle,
     Loader2,
     CheckCircle2,
-    Calendar,
-    Clock,
-    RotateCcw
 } from "lucide-react";
 
 import { useAccount } from "wagmi"
@@ -38,6 +33,7 @@ import { formatBalance } from "@/lib/formatBalance";
 import { getSmartAccounts } from "@/hooks/useSmartAccount";
 import { useAuth } from "@/context/AuthContext";
 import { tokens } from "@/config/tokens";
+import { createSubscribeDelegation } from "@/hooks/useDelegation";
 
 // Frequency Options for Auto-Swap
 const FREQUENCY_OPTIONS = [
@@ -62,6 +58,49 @@ const DURATION_OPTIONS = [
     { label: "1 Year", value: "1year", days: 365 },
     { label: "Indefinite", value: "indefinite", days: null }
 ];
+
+// Helper function to calculate next execution timestamp
+const calculateNextExecution = (frequency, customInterval = null) => {
+    const now = new Date();
+    let nextDate = new Date(now);
+
+    switch (frequency) {
+        case "1hour":
+            nextDate.setHours(nextDate.getHours() + 1);
+            break;
+        case "12hours":
+            nextDate.setHours(nextDate.getHours() + 12);
+            break;
+        case "daily":
+            nextDate.setDate(nextDate.getDate() + 1);
+            break;
+        case "3days":
+            nextDate.setDate(nextDate.getDate() + 3);
+            break;
+        case "weekly":
+            nextDate.setDate(nextDate.getDate() + 7);
+            break;
+        case "biweekly":
+            nextDate.setDate(nextDate.getDate() + 14);
+            break;
+        case "monthly":
+            nextDate.setMonth(nextDate.getMonth() + 1);
+            break;
+        case "custom":
+            if (customInterval) {
+                nextDate.setDate(nextDate.getDate() + (customInterval.days || 0));
+                nextDate.setHours(nextDate.getHours() + (customInterval.hours || 0));
+            }
+            break;
+        default:
+            nextDate.setDate(nextDate.getDate() + 7); // default weekly
+    }
+
+    return {
+        timestamp: Math.floor(nextDate.getTime() / 1000),
+        display: nextDate.toLocaleString()
+    };
+};
 
 // Reusable Token Select Component
 function TokenSelect({ selected, onChange, disabled }) {
@@ -434,8 +473,8 @@ function PopUpError({ open, onOpenChange, title, description, actionButton }) {
 export default function SubscribeSwap() {
     // Default tokens - USDT for payment and ETH for purchase
     const defaultFromTo = useMemo(() => {
-        const usdtToken = tokens.find(token => token.symbol === 'USDT') || tokens.find(token => token.symbol === 'USDC') || tokens[0];
-        const ethToken = tokens.find(token => token.symbol === 'ETH') || tokens[1];
+        const usdtToken = tokens.find(token => token.symbol === 'MON') || tokens.find(token => token.symbol === 'MON') || tokens[0];
+        const ethToken = tokens.find(token => token.symbol === 'USDC') || tokens[1];
         return [usdtToken, ethToken];
     }, []);
 
@@ -443,7 +482,6 @@ export default function SubscribeSwap() {
     const [fromToken, setFromToken] = useState(defaultFromTo[0]); // Payment token (USDT)
     const [toToken, setToToken] = useState(defaultFromTo[1]);     // Target token (ETH)
     const [fromAmount, setFromAmount] = useState("0"); // Default $10
-    const [toAmount, setToAmount] = useState("");
     const [fromBalanceWallet, setFromBalance] = useState("0");
     const [toBalanceWallet, setToBalance] = useState("0");
 
@@ -454,12 +492,8 @@ export default function SubscribeSwap() {
         days: 0,
         hours: 1
     });
-    const [executionTime, setExecutionTime] = useState("09:00");
 
     // Swap states
-    const [exchangeRate, setExchangeRate] = useState(0);
-    const [quoteData, setQuoteData] = useState({});
-    const [quoteLoading, setQuoteLoading] = useState(false);
     const [settings, setSettings] = useState({
         slippage: 2,
         deadline: 5
@@ -473,14 +507,17 @@ export default function SubscribeSwap() {
     const [errorData, setErrorData] = useState({ title: "", description: "" });
 
     const { address, isConnected } = useAccount();
-    const { postDelegationData } = useAuth();
-    
-    // 🎯 PERUBAHAN PENTING: Tambah loading state dan null safety untuk smart account
+    const { postSubscribeDelegationData } = useAuth();
+
+    // Smart account states
     const [selectedSmartAccount, setSelectedSmartAccount] = useState(null);
     const [allSmartAccounts, setAllSmartAccounts] = useState([]);
     const [loadingSmartAccounts, setLoadingSmartAccounts] = useState(false);
 
-    // Calculate subscription summary - PERBAIKAN
+    // Validation state
+    const [durationError, setDurationError] = useState("");
+
+    // Calculate subscription summary - PERBAIKAN: gunakan timestamp dari awal
     const subscriptionSummary = useMemo(() => {
         if (!fromAmount || parseFloat(fromAmount) <= 0) return null;
 
@@ -528,12 +565,17 @@ export default function SubscribeSwap() {
             totalDurationInHours = durationOption.days * 24;
         }
 
+        // Validasi durasi vs frekuensi
+        if (selectedDuration !== "indefinite" && intervalInHours > totalDurationInHours) {
+            setDurationError(`Frequency cannot be longer than duration. For ${durationOption?.label}, frequency must be at least ${durationOption?.label}`);
+        } else {
+            setDurationError("");
+        }
+
         // Hitung total eksekusi yang sebenarnya
         let totalExecutions = 0;
         if (intervalInHours > 0 && totalDurationInHours > 0) {
             totalExecutions = Math.floor(totalDurationInHours / intervalInHours);
-
-            // Pastikan minimal 1 eksekusi
             totalExecutions = Math.max(1, totalExecutions);
 
             // Untuk indefinite, batasi maksimal 999 eksekusi
@@ -545,64 +587,24 @@ export default function SubscribeSwap() {
         }
 
         const totalInvestment = amountPerSwap * totalExecutions;
-        const totalPurchased = (amountPerSwap / exchangeRate) * totalExecutions;
 
-        // Calculate next execution date
-        const nextExecution = new Date();
-        let frequencyDays = 0;
-        let frequencyHours = 0;
-
-        switch (selectedFrequency) {
-            case "daily":
-                frequencyDays = 1;
-                break;
-            case "3days":
-                frequencyDays = 3;
-                break;
-            case "weekly":
-                frequencyDays = 7;
-                break;
-            case "biweekly":
-                frequencyDays = 14;
-                break;
-            case "monthly":
-                frequencyDays = 30;
-                break;
-            case "1hour":
-                frequencyHours = 1;
-                break;
-            case "12hours":
-                frequencyHours = 12;
-                break;
-            case "custom":
-                frequencyDays = customInterval.days;
-                frequencyHours = customInterval.hours;
-                break;
-            default:
-                frequencyDays = 7;
-        }
-
-        nextExecution.setDate(nextExecution.getDate() + frequencyDays);
-        nextExecution.setHours(nextExecution.getHours() + frequencyHours);
-
-        // Set execution time
-        const [hours, minutes] = executionTime.split(':').map(Number);
-        nextExecution.setHours(hours, minutes, 0, 0);
+        // PERBAIKAN: Hitung next execution menggunakan helper function
+        const nextExecution = calculateNextExecution(selectedFrequency, customInterval);
 
         return {
-            frequencyDays,
-            frequencyHours,
+            frequencyDays: customInterval.days || 0,
+            frequencyHours: customInterval.hours || 0,
             totalExecutions,
             totalInvestment,
-            totalPurchased,
-            nextExecution: nextExecution.toLocaleString(),
+            nextExecutionTimestamp: nextExecution.timestamp, // Timestamp untuk delegation
+            nextExecutionDisplay: nextExecution.display,     // String untuk display
             amountPerSwap,
             intervalInHours,
             totalDurationInHours
         };
-    }, [fromAmount, exchangeRate, selectedFrequency, selectedDuration, customInterval, executionTime]);
+    }, [fromAmount, selectedFrequency, selectedDuration, customInterval]);
 
-    // 🎯 PERUBAHAN PENTING: Fetch smart accounts dengan loading state dan auto-select
+    // Fetch smart accounts dengan loading state dan auto-select
     useEffect(() => {
         const fetchSmartAccounts = async () => {
             if (!isConnected) {
@@ -616,8 +618,8 @@ export default function SubscribeSwap() {
             try {
                 const sa = await getSmartAccounts(false);
                 setAllSmartAccounts(sa);
-                
-                // 🎯 PERUBAHAN PENTING: Otomatis pilih smart account pertama jika tersedia
+
+                // Otomatis pilih smart account pertama jika tersedia
                 if (sa.length > 0) {
                     setSelectedSmartAccount(sa[0]);
                 } else {
@@ -635,7 +637,7 @@ export default function SubscribeSwap() {
         fetchSmartAccounts();
     }, [address, isConnected]);
 
-    // Fetch balances - MODIFIED dengan null safety check
+    // Fetch balances
     const fetchBalances = async () => {
         if (!isConnected || !selectedSmartAccount?.address) {
             setFromBalance("0");
@@ -658,49 +660,10 @@ export default function SubscribeSwap() {
         fetchBalances();
     }, [fromToken, toToken, address, selectedSmartAccount, isConnected]);
 
-    // Fetch quote - MODIFIED dengan null safety check
-    useEffect(() => {
-        if (!fromAmount || parseFloat(fromAmount) <= 0 || !selectedSmartAccount?.address) {
-            setToAmount("");
-            setExchangeRate(0);
-            setQuoteData({});
-            return;
-        }
-
-        let timeoutId;
-        const fetchQuote = async () => {
-            setQuoteLoading(true);
-            try {
-                const quote = await getSwapQuote(
-                    fromToken.address,
-                    toToken.address,
-                    fromAmount,
-                    settings.slippage * 100,
-                    settings.deadline * 60,
-                    selectedSmartAccount.address
-                );
-                const rate = Number(quote.output_formatted) / Number(fromAmount);
-                setQuoteData(quote);
-                setExchangeRate(rate);
-                setToAmount(quote.output_formatted);
-            } catch (error) {
-                console.error(error);
-                setQuoteData({});
-                setToAmount("");
-                setExchangeRate(0);
-            } finally {
-                setQuoteLoading(false);
-            }
-        };
-
-        timeoutId = setTimeout(fetchQuote, 1000);
-        return () => clearTimeout(timeoutId);
-    }, [fromAmount, fromToken, toToken, settings.slippage, settings.deadline, selectedSmartAccount]);
-
-    // Create subscription delegation - MODIFIED dengan null safety check
+    // Create subscription delegation - DIPERBAIKI: handle error dengan baik dari AuthContext
     const createSubscriptionDelegation = async () => {
         if (!selectedSmartAccount?.address) return;
-        
+
         setLoading(true);
 
         try {
@@ -709,40 +672,64 @@ export default function SubscribeSwap() {
                 frequency: selectedFrequency,
                 customInterval: selectedFrequency === 'custom' ? customInterval : null,
                 duration: selectedDuration,
-                executionTime: executionTime,
                 amount: fromAmount,
                 paymentToken: fromToken,
                 targetToken: toToken,
                 settings: settings,
-                nextExecution: subscriptionSummary.nextExecution,
+                nextExecution: subscriptionSummary.nextExecutionDisplay,
+                nextExecutionTimestamp: subscriptionSummary.nextExecutionTimestamp,
                 totalExecutions: subscriptionSummary.totalExecutions
             };
 
-            // Simulate API call - replace with your actual delegation API
             console.log("Creating subscription:", subscriptionData);
 
-            // Simulate API delay
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            // Panggil API melalui AuthContext - sekarang sudah handle error dengan baik
+            const res = await createSubscribeDelegation(postSubscribeDelegationData, selectedSmartAccount, subscriptionData, address);
 
-            // Mock success response
-            const response = { status: 'ok', subscriptionId: 'sub_' + Date.now() };
+            console.log("Subscription response:", res);
 
-            if (response.status === 'ok') {
+            // Handle response berdasarkan status
+            if (res && res.status === 'ok') {
                 setShowSuccessPopup(true);
                 resetAfterSubscription();
+            } else if (res && res.message === 'duplicate_pair') {
+                setErrorData({
+                    title: "Duplicate Token Pair",
+                    description: res.error || `Anda sudah memiliki subscription aktif dengan pasangan token ${fromToken.symbol} ↔ ${toToken.symbol}. Silakan pilih pasangan token yang berbeda.`
+                });
+                setShowErrorPopup(true);
+            } else if (res && res.message === 'limit') {
+                setErrorData({
+                    title: "Subscription Limit Reached",
+                    description: res.error || "Anda sudah mencapai batas maksimal 5 subscription aktif per smart account."
+                });
+                setShowErrorPopup(true);
             } else {
                 setErrorData({
                     title: "Subscription Failed",
-                    description: response.message || "Unable to create subscription. Please try again."
+                    description: res?.error || res?.message || "Unable to create subscription. Please try again."
                 });
                 setShowErrorPopup(true);
             }
         } catch (error) {
             console.error("Subscription creation failed:", error);
-            setErrorData({
-                title: "Subscription Failed",
-                description: "Unable to create recurring swap subscription. Please try again."
-            });
+            // Error sekarang sudah distrukturisasi dengan baik dari AuthContext
+            if (error.message === 'duplicate_pair') {
+                setErrorData({
+                    title: "Duplicate Token Pair",
+                    description: error.error || `Anda sudah memiliki subscription aktif dengan pasangan token ${fromToken.symbol} ↔ ${toToken.symbol}. Silakan pilih pasangan token yang berbeda.`
+                });
+            } else if (error.message === 'limit') {
+                setErrorData({
+                    title: "Subscription Limit Reached",
+                    description: error.error || "Anda sudah mencapai batas maksimal 5 subscription aktif per smart account."
+                });
+            } else {
+                setErrorData({
+                    title: "Subscription Failed",
+                    description: error.message || "Unable to create recurring swap subscription. Please try again."
+                });
+            }
             setShowErrorPopup(true);
         } finally {
             setLoading(false);
@@ -750,10 +737,7 @@ export default function SubscribeSwap() {
     };
 
     const resetAfterSubscription = () => {
-        setFromAmount("10");
-        setToAmount("");
-        setQuoteData({});
-        setExchangeRate(0);
+        setFromAmount("0");
     };
 
     const handleMax = useCallback((val) => {
@@ -761,7 +745,7 @@ export default function SubscribeSwap() {
         setFromAmount(`${count}`);
     }, [fromBalanceWallet]);
 
-    // 🎯 PERUBAHAN PENTING: Handle account change dengan null safety
+    // Handle account change
     const handleAccountChange = useCallback((val) => {
         const selected = allSmartAccounts.find(acc => acc.address === val);
         setSelectedSmartAccount(selected || null);
@@ -771,7 +755,6 @@ export default function SubscribeSwap() {
         setFromToken(toToken);
         setToToken(fromToken);
         setFromAmount("");
-        setToAmount("");
     }, [fromToken, toToken]);
 
     // Handle perubahan input custom interval
@@ -783,17 +766,28 @@ export default function SubscribeSwap() {
         }));
     };
 
-    // 🎯 PERUBAHAN PENTING: Update subscribeDisabled dengan null safety check
+    // Cek apakah saldo cukup untuk minimal satu eksekusi
+    const hasSufficientBalance = useMemo(() => {
+        if (!fromAmount || parseFloat(fromAmount) <= 0) return true;
+        if (!fromBalanceWallet || parseFloat(fromBalanceWallet) <= 0) return false;
+        return parseFloat(fromAmount) <= parseFloat(fromBalanceWallet);
+    }, [fromAmount, fromBalanceWallet]);
+
+    // Update subscribeDisabled dengan validasi durasi dan saldo
     const subscribeDisabled = useMemo(() => {
         if (!isConnected) return true;
         if (!fromAmount || parseFloat(fromAmount) <= 0) return true;
-        if (!toAmount || parseFloat(toAmount) <= 0) return true;
-        if (quoteLoading) return true;
         if (!selectedSmartAccount?.address) return true;
         if (loading) return true;
-        if (parseFloat(fromAmount) > parseFloat(fromBalanceWallet)) return true;
+        if (!hasSufficientBalance) return true;
+        if (durationError) return true;
 
-        // Validasi yang lebih baik untuk custom interval
+        // Validasi: token tidak boleh sama
+        if (fromToken?.address === toToken?.address) {
+            return true;
+        }
+
+        // Validasi untuk custom interval
         if (selectedFrequency === 'custom') {
             const totalCustomHours = (customInterval.days * 24) + customInterval.hours;
             if (totalCustomHours <= 0) return true;
@@ -802,7 +796,33 @@ export default function SubscribeSwap() {
         }
 
         return false;
-    }, [isConnected, fromAmount, toAmount, quoteLoading, selectedSmartAccount, loading, fromBalanceWallet, selectedFrequency, customInterval]);
+    }, [isConnected, fromAmount, selectedSmartAccount, loading, hasSufficientBalance, selectedFrequency, customInterval, durationError]);
+
+    // Fungsi untuk mendapatkan teks tombol
+    const getButtonText = () => {
+        if (loading) {
+            return (
+                <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    Creating Subscription...
+                </>
+            );
+        }
+
+        if (!selectedSmartAccount) {
+            return "Select Smart Account First";
+        }
+
+        if (!isConnected) {
+            return "Connect Wallet to Subscribe";
+        }
+
+        if (!hasSufficientBalance) {
+            return "Insufficient Balance";
+        }
+
+        return `Subscribe to Auto-Buy ${toToken?.symbol}`;
+    };
 
     return (
         <>
@@ -814,11 +834,11 @@ export default function SubscribeSwap() {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-6">
                     <div>
-                        <h3 className="text-xl font-semibold">Subscribe</h3>
+                        <h3 className="text-md font-semibold">Subscription</h3>
                     </div>
                     <div className="flex items-center gap-2">
                         {isConnected && (
-                            <Select 
+                            <Select
                                 onValueChange={handleAccountChange}
                                 value={selectedSmartAccount?.address || ""}
                                 disabled={loadingSmartAccounts}
@@ -889,7 +909,6 @@ export default function SubscribeSwap() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">
                         Balance: {formatBalance(fromBalanceWallet)} {fromToken?.symbol}
-                        {!selectedSmartAccount && " - Select a smart account first"}
                     </div>
                 </div>
 
@@ -904,17 +923,13 @@ export default function SubscribeSwap() {
                     </button>
                 </div>
 
-                {/* Purchase Target Section */}
+                {/* Purchase Target Section - DIUBAH: tidak menampilkan jumlah token */}
                 <div className="bg-white/5 rounded-2xl p-4 mb-4">
                     <Label className="text-sm text-muted-foreground">Auto-Buy</Label>
                     <div className="flex items-center justify-between">
-                        <Input
-                            type="text"
-                            placeholder="0.0"
-                            value={toAmount}
-                            readOnly
-                            className="md:text-2xl text-2xl font-semibold border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
-                        />
+                        <div className="md:text-2xl text-2xl font-semibold border-0 bg-transparent p-0">
+                            {toToken?.symbol}
+                        </div>
                         <TokenSelect
                             selected={toToken}
                             onChange={setToToken}
@@ -922,12 +937,23 @@ export default function SubscribeSwap() {
                         />
                     </div>
                     <div className="text-xs text-muted-foreground mt-2">
-                        {selectedSmartAccount 
-                            ? `Receive ~${Number(toAmount).toFixed(8)} ${toToken?.symbol} at current rate`
-                            : "Select a smart account to see conversion rate"
+                        {selectedSmartAccount
+                            ? `You will receive ${toToken?.symbol} based on market price at execution time`
+                            : "Select a smart account to configure auto-buy"
                         }
                     </div>
                 </div>
+
+                {/* // Tambahkan di JSX, setelah section Purchase Target */}
+                {fromToken?.address === toToken?.address && (
+                    <Alert className="mt-2 bg-yellow-500/10 border-yellow-500/20 mb-4">
+                        <AlertCircle className="h-4 w-4 text-yellow-500" />
+                        <AlertTitle className="text-yellow-500 text-sm font-medium">Invalid Token Pair</AlertTitle>
+                        <AlertDescription className="text-yellow-400 text-xs">
+                            Payment token and target token cannot be the same.
+                        </AlertDescription>
+                    </Alert>
+                )}
 
                 {/* Subscription Settings */}
                 <div className="bg-white/5 rounded-2xl p-4 mb-4">
@@ -989,18 +1015,6 @@ export default function SubscribeSwap() {
                         </div>
                     )}
 
-                    {/* Execution Time */}
-                    <div className="mb-4">
-                        <Label className="text-xs text-muted-foreground mb-2 block">Execution Time</Label>
-                        <Input
-                            type="time"
-                            value={executionTime}
-                            onChange={(e) => setExecutionTime(e.target.value)}
-                            className="w-full"
-                            disabled={!selectedSmartAccount}
-                        />
-                    </div>
-
                     {/* Duration Selection */}
                     <div>
                         <Label className="text-xs text-muted-foreground mb-2 block">Duration</Label>
@@ -1019,6 +1033,17 @@ export default function SubscribeSwap() {
                             ))}
                         </div>
                     </div>
+
+                    {/* Tampilkan error durasi */}
+                    {durationError && (
+                        <Alert className="mt-4 bg-red-500/10 border-red-500/20">
+                            <AlertCircle className="h-4 w-4 text-red-500" />
+                            <AlertTitle className="text-red-500 text-sm font-medium">Invalid Duration</AlertTitle>
+                            <AlertDescription className="text-red-400 text-xs">
+                                {durationError}
+                            </AlertDescription>
+                        </Alert>
+                    )}
                 </div>
 
                 {subscriptionSummary && (
@@ -1031,7 +1056,7 @@ export default function SubscribeSwap() {
                         <div className="space-y-2 text-xs">
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Each purchase:</span>
-                                <span>{fromAmount} {fromToken?.symbol} → ~{toAmount} {toToken?.symbol}</span>
+                                <span>{fromAmount} {fromToken?.symbol} → {toToken?.symbol}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Frequency:</span>
@@ -1048,7 +1073,7 @@ export default function SubscribeSwap() {
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Next execution:</span>
-                                <span>{subscriptionSummary.nextExecution}</span>
+                                <span>{subscriptionSummary.nextExecutionDisplay}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-muted-foreground">Total executions:</span>
@@ -1063,15 +1088,10 @@ export default function SubscribeSwap() {
                                     {selectedDuration === "indefinite" ? "Ongoing" : `${subscriptionSummary.totalInvestment.toFixed(2)} ${fromToken?.symbol}`}
                                 </span>
                             </div>
-                            <div className="flex justify-between">
-                                <span className="text-muted-foreground">Total estimated {toToken?.symbol}:</span>
-                                <span className="font-semibold">
-                                    {selectedDuration === "indefinite" ? "Ongoing" : `${subscriptionSummary.totalPurchased.toFixed(6)} ${toToken?.symbol}`}
-                                </span>
-                            </div>
                         </div>
                     </motion.div>
                 )}
+
                 {/* Subscribe Button */}
                 <Button
                     onClick={createSubscriptionDelegation}
@@ -1083,18 +1103,7 @@ export default function SubscribeSwap() {
                             : "bg-green-600 hover:bg-green-700"
                     )}
                 >
-                    {loading ? (
-                        <>
-                            <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                            Creating Subscription...
-                        </>
-                    ) : !selectedSmartAccount ? (
-                        "Select Smart Account First"
-                    ) : isConnected ? (
-                        `Subscribe to Auto-Buy ${toToken?.symbol}`
-                    ) : (
-                        "Connect Wallet to Subscribe"
-                    )}
+                    {getButtonText()}
                 </Button>
             </motion.div>
 
@@ -1108,7 +1117,7 @@ export default function SubscribeSwap() {
                     fromToken: fromToken,
                     toToken: toToken,
                     amount: fromAmount,
-                    nextExecution: subscriptionSummary?.nextExecution,
+                    nextExecution: subscriptionSummary?.nextExecutionDisplay,
                     totalExecutions: subscriptionSummary?.totalExecutions
                 }}
             />
