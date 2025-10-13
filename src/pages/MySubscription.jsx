@@ -22,7 +22,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { MoreVertical, AlertCircle, Unplug, Loader2, X, CheckCircle, XCircle, Calendar, Clock, Repeat, RefreshCcw } from "lucide-react";
+import { MoreVertical, AlertCircle, Unplug, Loader2, X, CheckCircle, XCircle, Calendar, Clock, Repeat, RefreshCcw, Link2 } from "lucide-react";
 import { useAccount } from "wagmi";
 import { getSmartAccounts } from "@/hooks/useSmartAccount";
 import { useAuth } from "@/context/AuthContext";
@@ -63,6 +63,7 @@ const durationLabels = {
     "1year": "1 Year",
     "indefinite": "Indefinite"
 };
+
 
 // Items per page
 const ITEMS_PER_PAGE = 3;
@@ -347,6 +348,7 @@ export default function MySubscription() {
             const created_at = extractMongoValue(sub.created_at);
             const startTimestamp = extractMongoValue(sub.startTimestamp);
             const endTimestamp = extractMongoValue(sub.endTimestamp);
+            const lastExecutionHash = sub.lastExecutionHash;
 
             // Generate frequency label
             const frequencyLabel = frequency === 'custom'
@@ -370,6 +372,7 @@ export default function MySubscription() {
                 executed: executed || 0,
                 nextExecution: formatTimestamp(nextExecutionTimestamp),
                 nextExecutionTime,
+                lastExecutionHash: lastExecutionHash || null,
                 createdTime: created_at,
                 startTime: formatTimestamp(startTimestamp),
                 endTime: formatTimestamp(endTimestamp),
@@ -710,6 +713,23 @@ export default function MySubscription() {
                                                                 {subscription.executed}/{subscription.totalExecutions === 999 ? "∞" : subscription.totalExecutions}
                                                             </span>
                                                         </div>
+
+                                                        {subscription.lastExecutionHash && (
+                                                            <div className="flex justify-between items-center">
+                                                                <div className="flex items-center gap-2 text-muted-foreground">
+                                                                    <Link2 className="h-3 w-3" />
+                                                                    <span className="text-xs font-medium">Last Subscription:</span>
+                                                                </div>
+                                                                <a
+                                                                    href={`https://testnet.monadexplorer.com/tx/${subscription.lastExecutionHash}`}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="text-xs font-semibold text-blue-500 hover:underline"
+                                                                >
+                                                                    {`${subscription.lastExecutionHash.slice(0, 8)}...${subscription.lastExecutionHash.slice(-8)}`}
+                                                                </a>
+                                                            </div>
+                                                        )}
 
                                                         {/* Created Time */}
                                                         <div className="flex justify-between items-center pt-2 border-t border-border/50">
