@@ -481,13 +481,13 @@ export default function SubscribeSwap() {
     // Core states
     const [fromToken, setFromToken] = useState(defaultFromTo[0]); // Payment token (USDT)
     const [toToken, setToToken] = useState(defaultFromTo[1]);     // Target token (ETH)
-    const [fromAmount, setFromAmount] = useState("0"); // Default $10
-    const [fromBalanceWallet, setFromBalance] = useState("0");
+    const [fromAmount, setFromAmount] = useState("0");          // Amount in payment token
+    const [fromBalanceWallet, setFromBalance] = useState("0"); // Balance of payment token in wallet
     const [toBalanceWallet, setToBalance] = useState("0");
 
     // Subscription states
-    const [selectedFrequency, setSelectedFrequency] = useState("weekly");
-    const [selectedDuration, setSelectedDuration] = useState("1month");
+    const [selectedFrequency, setSelectedFrequency] = useState("weekly"); 
+    const [selectedDuration, setSelectedDuration] = useState("1month"); 
     const [customInterval, setCustomInterval] = useState({
         days: 0,
         hours: 1
@@ -517,13 +517,13 @@ export default function SubscribeSwap() {
     // Validation state
     const [durationError, setDurationError] = useState("");
 
-    // Calculate subscription summary - PERBAIKAN: gunakan timestamp dari awal
+    // Calculate subscription summary
     const subscriptionSummary = useMemo(() => {
         if (!fromAmount || parseFloat(fromAmount) <= 0) return null;
 
         const amountPerSwap = parseFloat(fromAmount);
 
-        // Hitung interval dalam jam berdasarkan frekuensi
+        // count interval in hours
         let intervalInHours = 0;
 
         switch (selectedFrequency) {
@@ -555,30 +555,30 @@ export default function SubscribeSwap() {
                 intervalInHours = 24 * 7; // default weekly
         }
 
-        // Hitung total durasi dalam jam
+        // Count total duration in hours
         let totalDurationInHours = 0;
         const durationOption = DURATION_OPTIONS.find(d => d.value === selectedDuration);
 
         if (selectedDuration === "indefinite") {
-            totalDurationInHours = 24 * 365 * 10; // 10 tahun untuk perhitungan indefinite
+            totalDurationInHours = 24 * 365 * 10; // 10 years for practical purposes
         } else if (durationOption) {
             totalDurationInHours = durationOption.days * 24;
         }
 
-        // Validasi durasi vs frekuensi
+        // Validation: frequency must not be longer than duration
         if (selectedDuration !== "indefinite" && intervalInHours > totalDurationInHours) {
             setDurationError(`Frequency cannot be longer than duration. For ${durationOption?.label}, frequency must be at least ${durationOption?.label}`);
         } else {
             setDurationError("");
         }
 
-        // Hitung total eksekusi yang sebenarnya
+        // Count total executions
         let totalExecutions = 0;
         if (intervalInHours > 0 && totalDurationInHours > 0) {
             totalExecutions = Math.floor(totalDurationInHours / intervalInHours);
             totalExecutions = Math.max(1, totalExecutions);
 
-            // Untuk indefinite, batasi maksimal 999 eksekusi
+            // For indefinite, cap at 999 executions
             if (selectedDuration === "indefinite" && totalExecutions > 999) {
                 totalExecutions = 999;
             }
@@ -588,7 +588,7 @@ export default function SubscribeSwap() {
 
         const totalInvestment = amountPerSwap * totalExecutions;
 
-        // PERBAIKAN: Hitung next execution menggunakan helper function
+        // Count next execution timestamp
         const nextExecution = calculateNextExecution(selectedFrequency, customInterval);
 
         return {
@@ -596,8 +596,8 @@ export default function SubscribeSwap() {
             frequencyHours: customInterval.hours || 0,
             totalExecutions,
             totalInvestment,
-            nextExecutionTimestamp: nextExecution.timestamp, // Timestamp untuk delegation
-            nextExecutionDisplay: nextExecution.display,     // String untuk display
+            nextExecutionTimestamp: nextExecution.timestamp,
+            nextExecutionDisplay: nextExecution.display, 
             amountPerSwap,
             intervalInHours,
             totalDurationInHours
@@ -619,7 +619,7 @@ export default function SubscribeSwap() {
                 const sa = await getSmartAccounts(false);
                 setAllSmartAccounts(sa);
 
-                // Otomatis pilih smart account pertama jika tersedia
+                // Select smart account automatically available
                 if (sa.length > 0) {
                     setSelectedSmartAccount(sa[0]);
                 } else {
@@ -660,7 +660,7 @@ export default function SubscribeSwap() {
         fetchBalances();
     }, [fromToken, toToken, address, selectedSmartAccount, isConnected]);
 
-    // Create subscription delegation - DIPERBAIKI: handle error dengan baik dari AuthContext
+    // Create subscription delegation
     const createSubscriptionDelegation = async () => {
         if (!selectedSmartAccount?.address) return;
 
@@ -683,25 +683,25 @@ export default function SubscribeSwap() {
 
             console.log("Creating subscription:", subscriptionData);
 
-            // Panggil API melalui AuthContext - sekarang sudah handle error dengan baik
+            // Call API for creating subscription
             const res = await createSubscribeDelegation(postSubscribeDelegationData, selectedSmartAccount, subscriptionData, address);
 
             console.log("Subscription response:", res);
 
-            // Handle response berdasarkan status
+            // Handle response based on structured response
             if (res && res.status === 'ok') {
                 setShowSuccessPopup(true);
                 resetAfterSubscription();
             } else if (res && res.message === 'duplicate_pair') {
                 setErrorData({
                     title: "Duplicate Token Pair",
-                    description: res.error || `Anda sudah memiliki subscription aktif dengan pasangan token ${fromToken.symbol} ↔ ${toToken.symbol}. Silakan pilih pasangan token yang berbeda.`
+                    description: res.error || `You already have an active subscription with the token pair ${fromToken.symbol} ↔ ${toToken.symbol}. Please choose a different token pair.`
                 });
                 setShowErrorPopup(true);
             } else if (res && res.message === 'limit') {
                 setErrorData({
                     title: "Subscription Limit Reached",
-                    description: res.error || "Anda sudah mencapai batas maksimal 5 subscription aktif per smart account."
+                    description: res.error || "You have reached the maximum limit of 5 active subscriptions per smart account."
                 });
                 setShowErrorPopup(true);
             } else {
@@ -713,16 +713,16 @@ export default function SubscribeSwap() {
             }
         } catch (error) {
             console.error("Subscription creation failed:", error);
-            // Error sekarang sudah distrukturisasi dengan baik dari AuthContext
+            
             if (error.message === 'duplicate_pair') {
                 setErrorData({
                     title: "Duplicate Token Pair",
-                    description: error.error || `Anda sudah memiliki subscription aktif dengan pasangan token ${fromToken.symbol} ↔ ${toToken.symbol}. Silakan pilih pasangan token yang berbeda.`
+                    description: error.error || `You already have an active subscription with the token pair ${fromToken.symbol} ↔ ${toToken.symbol}. Please choose a different token pair.`
                 });
             } else if (error.message === 'limit') {
                 setErrorData({
                     title: "Subscription Limit Reached",
-                    description: error.error || "Anda sudah mencapai batas maksimal 5 subscription aktif per smart account."
+                    description: error.error || "You have reached the maximum limit of 5 active subscriptions per smart account."
                 });
             } else {
                 setErrorData({
@@ -757,7 +757,7 @@ export default function SubscribeSwap() {
         setFromAmount("");
     }, [fromToken, toToken]);
 
-    // Handle perubahan input custom interval
+    // Handle change in custom interval inputs
     const handleCustomIntervalChange = (field, value) => {
         const newValue = parseInt(value) || 0;
         setCustomInterval(prev => ({
@@ -766,14 +766,13 @@ export default function SubscribeSwap() {
         }));
     };
 
-    // Cek apakah saldo cukup untuk minimal satu eksekusi
+    // Balance check if sufficient
     const hasSufficientBalance = useMemo(() => {
         if (!fromAmount || parseFloat(fromAmount) <= 0) return true;
         if (!fromBalanceWallet || parseFloat(fromBalanceWallet) <= 0) return false;
         return parseFloat(fromAmount) <= parseFloat(fromBalanceWallet);
     }, [fromAmount, fromBalanceWallet]);
 
-    // Update subscribeDisabled dengan validasi durasi dan saldo
     const subscribeDisabled = useMemo(() => {
         if (!isConnected) return true;
         if (!fromAmount || parseFloat(fromAmount) <= 0) return true;
@@ -782,12 +781,12 @@ export default function SubscribeSwap() {
         if (!hasSufficientBalance) return true;
         if (durationError) return true;
 
-        // Validasi: token tidak boleh sama
+        // Validation for same token
         if (fromToken?.address === toToken?.address) {
             return true;
         }
 
-        // Validasi untuk custom interval
+        // Validation for custom interval
         if (selectedFrequency === 'custom') {
             const totalCustomHours = (customInterval.days * 24) + customInterval.hours;
             if (totalCustomHours <= 0) return true;
@@ -798,7 +797,7 @@ export default function SubscribeSwap() {
         return false;
     }, [isConnected, fromAmount, selectedSmartAccount, loading, hasSufficientBalance, selectedFrequency, customInterval, durationError]);
 
-    // Fungsi untuk mendapatkan teks tombol
+    // Function to get button text based on state
     const getButtonText = () => {
         if (loading) {
             return (

@@ -6,9 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Toggle } from "@/components/ui/toggle"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
     RadioGroup,
@@ -30,9 +28,7 @@ import {
     Check,
     ChevronDown,
     Search,
-    Plus,
     AlertCircle,
-    ChevronDownIcon,
     Loader2,
     CheckCircle2,
     Copy,
@@ -41,19 +37,17 @@ import {
 } from "lucide-react";
 
 import { useAccount } from "wagmi"
-import { getVerifiedTokenWithBalance, defaultSwapFromTo, getSwapQuote, getBalances, getBalancesAllToken } from "@/hooks/useMonorail";
+import { getSwapQuote, getBalances, getBalancesAllToken } from "@/hooks/useMonorail";
 import { zeroAddress } from "viem";
 import { formatBalance } from "@/lib/formatBalance";
 
 import DateTimePicker from "./DatePicker";
 import CooldownTime from "./CooldownTime";
 import SwapLimitPrice from "./SwapLimitPrice"
-import axios from "axios";
 import { getSmartAccounts } from "@/hooks/useSmartAccount";
 import { swapERC20ToMon, swapMonToERC20 } from "@/hooks/useWallet";
 import { createSwapDelegation } from "@/hooks/useDelegation";
 
-// Import token list dari file lokal
 import { tokens } from "@/config/tokens";
 import { useAuth } from "@/context/AuthContext";
 
@@ -1296,7 +1290,7 @@ export default function SwapBox() {
                             readOnly
                             className="md:text-2xl text-2xl font-semibold border-0 bg-transparent p-0 focus-visible:ring-0 shadow-none"
                         />
-                        {/* 🎯 PERUBAHAN PENTING: Tambah prop selectedSmartAccount ke TokenSelect */}
+
                         <TokenSelect
                             selected={toToken}
                             onChange={(token) => {

@@ -1,13 +1,11 @@
 import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
     Select,
     SelectContent,
@@ -19,9 +17,6 @@ import { Checkbox } from "@/components/ui/checkbox"
 
 import { cn } from "@/lib/utils";
 import {
-    SlidersHorizontal,
-    HelpCircle,
-    ArrowDownUp,
     Check,
     ChevronDown,
     Search,
@@ -30,17 +25,15 @@ import {
     CheckCircle2,
     Copy,
     ExternalLink,
-    RotateCcw,
     Zap
 } from "lucide-react";
 
 import { useAccount } from "wagmi"
-import { getSwapQuote, getBalances, getBalancesAllToken } from "@/hooks/useMonorail";
+import { getSwapQuote, getBalancesAllToken } from "@/hooks/useMonorail";
 import { formatBalance } from "@/lib/formatBalance";
 import { getSmartAccounts } from "@/hooks/useSmartAccount";
 import { useAuth } from "@/context/AuthContext";
 import { tokens } from "@/config/tokens";
-import { zeroAddress } from "viem";
 import { batchSwapERC20ToMon } from "@/hooks/useWallet";
 
 // Reusable Token Select Component
@@ -484,9 +477,8 @@ export default function BatchConvertSwap() {
     });
 
     const { address, isConnected } = useAccount();
-    const { postDelegationData } = useAuth();
 
-    // Fetch smart accounts - MODIFIED with auto-select first account
+    // Fetch smart accounts
     useEffect(() => {
         const fetchSmartAccounts = async () => {
             if (!isConnected) {
@@ -501,7 +493,6 @@ export default function BatchConvertSwap() {
                 const sa = await getSmartAccounts(false);
                 setAllSmartAccounts(sa);
 
-                // 🎯 PERUBAHAN PENTING: Otomatis pilih smart account pertama jika tersedia
                 if (sa.length > 0) {
                     setSelectedSmartAccount(sa[0]);
                 } else {
@@ -519,9 +510,9 @@ export default function BatchConvertSwap() {
         fetchSmartAccounts();
     }, [address, isConnected]);
 
-    // Detect ERC20 tokens using the new API - MODIFIED to exclude target token
+    // Detect ERC20 tokens using the new API
     const detectERC20Tokens = async () => {
-        // 🎯 PERUBAHAN PENTING: Pastikan smart account sudah dipilih
+
         if (!selectedSmartAccount?.address) return;
 
         setDetectingTokens(true);
@@ -532,37 +523,31 @@ export default function BatchConvertSwap() {
 
         try {
             const allTokens = await getBalancesAllToken(selectedSmartAccount.address);
-
-            // Filter dan cocokkan dengan token list
             const filteredTokens = allTokens
-                .filter((token, index) => index !== 0) // Hapus native MON yang ada di index 0
-                .filter(token => token.balance && parseFloat(token.balance) > 0) // Hanya token dengan balance > 0
+                .filter((token, index) => index !== 0) // 
+                .filter(token => token.balance && parseFloat(token.balance) > 0) 
                 .filter(token => {
-                    // Exclude target token dari daftar
                     const isTargetToken = token.address.toLowerCase() === targetToken.address.toLowerCase();
                     return !isTargetToken;
                 })
                 .map(apiToken => {
-                    // Cari token yang sesuai dalam token list berdasarkan address
                     const matchedToken = tokens.find(tokenListItem =>
                         tokenListItem.address.toLowerCase() === apiToken.address.toLowerCase()
                     );
 
-                    // Jika token ditemukan dalam token list, gabungkan data
                     if (matchedToken) {
                         return {
-                            ...apiToken, // Data dari API: address, symbol, name, decimals, balance
-                            image_url: matchedToken.image_url, // Dari token list
-                            verified: matchedToken.verified,   // Dari token list
+                            ...apiToken,
+                            image_url: matchedToken.image_url,
+                            verified: matchedToken.verified, 
                             balanceFormatted: formatBalance(apiToken.balance),
-                            // Prioritaskan data dari token list untuk symbol dan name jika ada perbedaan
                             symbol: matchedToken.symbol || apiToken.symbol,
                             name: matchedToken.name || apiToken.name
                         };
                     }
-                    return null; // Token tidak ada dalam token list, abaikan
+                    return null;
                 })
-                .filter(token => token !== null); // Hapus token yang tidak ada dalam token list
+                .filter(token => token !== null); 
 
             setDetectedTokens(filteredTokens);
         } catch (error) {
@@ -615,7 +600,6 @@ export default function BatchConvertSwap() {
                         selectedSmartAccount.address
                     );
 
-                    // Check if quote is empty object (failed) or missing output
                     if (Object.keys(quote).length === 0 || !quote.output_formatted) {
                         throw new Error('Empty quote response');
                     }
@@ -701,7 +685,6 @@ export default function BatchConvertSwap() {
     const handleAccountChange = useCallback((val) => {
         const selected = allSmartAccounts.find(acc => acc.address === val);
         setSelectedSmartAccount(selected);
-        // Reset when account changes
         setDetectedTokens([]);
         setSelectedTokens([]);
         setConversionQuotes({});
@@ -711,14 +694,12 @@ export default function BatchConvertSwap() {
     // Handle target token change
     const handleTargetTokenChange = (newTargetToken) => {
         setTargetToken(newTargetToken);
-        // Reset detected tokens when target token changes
         setDetectedTokens([]);
         setSelectedTokens([]);
         setConversionQuotes({});
         setTotalReceived("0");
     };
 
-    // 🎯 PERUBAHAN PENTING: Disable detect tokens jika belum ada smart account
     const canDetectTokens = useMemo(() => {
         return isConnected && selectedSmartAccount?.address;
     }, [isConnected, selectedSmartAccount]);
@@ -727,7 +708,6 @@ export default function BatchConvertSwap() {
         return selectedTokens.length > 0 && detectedTokens.length > 0 && selectedSmartAccount?.address;
     }, [selectedTokens, detectedTokens, selectedSmartAccount]);
 
-    // Can convert if there are selected tokens with successful quotes
     const canConvert = useMemo(() => {
         const successfulTokens = selectedTokens.filter(address =>
             conversionQuotes[address]?.success === true
@@ -763,14 +743,13 @@ export default function BatchConvertSwap() {
                 return {
                     tokenAddress: token.address,
                     amount: token.balance,
-                    quoteData: quote.raw // Menggunakan data quote mentah untuk swap
+                    quoteData: quote.raw
                 };
             });
 
         return conversionData;
     };
 
-    // 🎯 PERUBAHAN PENTING: Execute batch conversion menggunakan batchSwapERC20ToMon
     const executeBatchConversion = async () => {
         if (!selectedSmartAccount?.address || !selectedSmartAccount?.salt) return;
 
@@ -778,8 +757,6 @@ export default function BatchConvertSwap() {
 
         try {
             const conversionData = prepareConversionData();
-
-            // Filter hanya token yang memiliki quote berhasil
             const successfulConversions = conversionData.filter(item => item.quoteData);
 
             if (successfulConversions.length === 0) {
@@ -794,7 +771,6 @@ export default function BatchConvertSwap() {
 
             console.log("Executing batch conversion for:", successfulConversions.length, "tokens");
 
-            // 🎯 PERUBAHAN PENTING: Panggil fungsi batchSwapERC20ToMon yang baru
             const hash = await batchSwapERC20ToMon(successfulConversions, selectedSmartAccount.salt);
 
             if (!hash) {
@@ -803,7 +779,7 @@ export default function BatchConvertSwap() {
 
             console.log("Batch conversion successful, transaction hash:", hash);
 
-            // Set success data untuk popup
+            // Set success data for popup
             setSuccessData({
                 txHash: hash,
                 targetToken: targetToken,
@@ -813,12 +789,12 @@ export default function BatchConvertSwap() {
 
             setShowSuccessPopup(true);
 
-            // Reset setelah konversi berhasil
+            // Reset after successful conversion
             setSelectedTokens([]);
             setConversionQuotes({});
             setTotalReceived("0");
 
-            // Refresh token detection setelah konversi
+            // Refresh token detection after a delay
             setTimeout(() => {
                 detectERC20Tokens();
             }, 2000);

@@ -37,8 +37,356 @@ Swifter is a revolutionary swap aggregator platform that leverages MetaMask smar
 - **Smart Balance Management**: Automatic execution with balance verification
 - **Progress Tracking**: Real-time monitoring of subscription executions and remaining swaps
 
+## ⚡ Core Workflows
+
+### 1️⃣ Delegation Creation Flow
+
+**Purpose:** Create a delegation signature to grant authority to the backend for swap execution
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    DELEGATION CREATION                       │
+└─────────────────────────────────────────────────────────────┘
+
+Step 1: Initialization
+┌──────────────────────────────────────────────┐
+│ • Validate smart account address             │
+│ • Check wallet connection                    │
+│ • Initialize swap parameters:                │
+│   - Source token & amount                    │
+│   - Target token                             │
+│   - Slippage tolerance                       │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 2: Quote Fetching
+┌──────────────────────────────────────────────┐
+│ • Call Monorail API for best price           │
+│ • Support batch or single quote              │
+│ • Calculate expected output amount           │
+│ • Get optimal swap route                     │
+│ • Display price impact to user               │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 3: Delegation Creation
+┌──────────────────────────────────────────────┐
+│ • Generate delegation object with:           │
+│   - Delegate address (backend executor)      │
+│   - Caveats (restrictions):                  │
+│     • Token allowances                       │
+│     • Execution limits                       │
+│     • Time constraints                       │
+│   - Nonce & expiry                           │
+│ • User signs delegation via wallet           │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 4: Approval Handling
+┌──────────────────────────────────────────────┐
+│ IF token is NOT native (ETH/MATIC):          │
+│ • Create ERC20 approval delegation           │
+│ • Set allowance for swap contract            │
+│ • Sign approval delegation                   │
+│ • Include in delegation package              │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 5: Submission
+┌──────────────────────────────────────────────┐
+│ • Bundle all delegations                     │
+│ • Send to backend API:                       │
+│   POST /api/delegations                      │
+│   {                                          │
+│     swap_delegation,                         │
+│     approval_delegation,                     │
+│     metadata                                 │
+│   }                                          │
+│ • Receive confirmation & tracking ID         │
+└──────────────────────────────────────────────┘
+                    ↓
+                ✅ Success
+```
+
+---
+
+### 2️⃣ Batch Convert Flow
+
+**Purpose:** Convert multiple tokens to a single target token in one efficient transaction
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      BATCH CONVERSION                        │
+└─────────────────────────────────────────────────────────────┘
+
+Step 1: Token Detection
+┌──────────────────────────────────────────────┐
+│ • Scan smart account for all ERC20 balances  │
+│ • Filter tokens with balance > 0             │
+│ • Fetch token metadata (symbol, decimals)    │
+│ • Display total portfolio value              │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 2: Target Selection
+┌──────────────────────────────────────────────┐
+│ • User selects target conversion token       │
+│   (e.g., USDC, ETH, USDT)                    │
+│ • System auto-excludes target token from     │
+│   source token list                          │
+│ • Show available tokens for conversion       │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 3: Quote Aggregation
+┌──────────────────────────────────────────────┐
+│ • Fetch quotes for ALL selected tokens       │
+│   simultaneously via Monorail batch API      │
+│ • For each token pair:                       │
+│   - Get best swap route                      │
+│   - Calculate output amount                  │
+│   - Estimate gas cost                        │
+│ • Display total expected output              │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 4: Validation
+┌──────────────────────────────────────────────┐
+│ • Check quote results:                       │
+│   ✅ Success: Include in batch               │
+│   ❌ Failed: Auto-deselect & notify user     │
+│ • Validate total gas estimate                │
+│ • Check for price impact warnings            │
+│ • Require user confirmation                  │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 5: Batch Execution
+┌──────────────────────────────────────────────┐
+│ • Create batch delegation with:              │
+│   - Multiple swap operations                 │
+│   - Shared caveats & restrictions            │
+│   - Optimized execution order                │
+│ • Generate approval delegations for each     │
+│   source token                               │
+│ • User signs batch delegation                │
+│ • Submit to backend for execution            │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 6: Confirmation
+┌──────────────────────────────────────────────┐
+│ • Display conversion summary:                │
+│   - Total tokens converted: X                │
+│   - Total output amount: Y target tokens     │
+│   - Transaction hash                         │
+│   - Gas cost used                            │
+│   - Success/failure per token                │
+│ • Update portfolio balance                   │
+└──────────────────────────────────────────────┘
+                    ↓
+                ✅ Complete
+```
+
+---
+
+### 3️⃣ Auto Subscription Flow
+
+**Purpose:** Automatic recurring swap with certain time intervals (DCA strategy)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    AUTO SUBSCRIPTION                         │
+└─────────────────────────────────────────────────────────────┘
+
+Step 1: Configuration
+┌──────────────────────────────────────────────┐
+│ User Input:                                   │
+│ • Frequency (Daily/Weekly/Monthly)            │
+│ • Duration (1 month / 3 months / 1 year)      │
+│ • Token pair (e.g., USDC → ETH)               │
+│ • Amount per swap                             │
+│ • Slippage tolerance                          │
+│                                               │
+│ System Calculates:                            │
+│ • Total executions = duration / frequency     │
+│ • Total cost = amount × executions            │
+│ • Next execution time                         │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 2: Validation
+┌──────────────────────────────────────────────┐
+│ • Check for duplicate pair subscriptions      │
+│ • Validate sufficient token balance:          │
+│   Required = amount × total_executions        │
+│ • Verify gas fee coverage                     │
+│ • Confirm subscription limit not exceeded     │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 3: Delegation Setup
+┌──────────────────────────────────────────────┐
+│ • Create time-bound delegation with:          │
+│   - Start time: Now                           │
+│   - End time: Now + duration                  │
+│   - Execution limit: total_executions         │
+│   - Amount per execution: specified amount    │
+│   - Frequency caveat: time interval           │
+│                                               │
+│ • Generate recurring approval delegation      │
+│ • User signs subscription delegation          │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 4: Monitoring
+┌──────────────────────────────────────────────┐
+│ Backend System Tracks:                        │
+│ • Execution count: X / total                  │
+│ • Next run time: timestamp                    │
+│ • Remaining balance check                     │
+│ • Subscription status: ACTIVE/PAUSED/ENDED    │
+│                                               │
+│ User Dashboard Shows:                         │
+│ • Progress bar                                │
+│ • Execution history                           │
+│ • Average price achieved                      │
+│ • Total tokens accumulated                    │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 5: Automatic Execution
+┌──────────────────────────────────────────────┐
+│ When Next Run Time Reached:                   │
+│ • Validate delegation still valid             │
+│ • Check balance sufficient                    │
+│ • Fetch current market quote                  │
+│ • Execute swap via delegation                 │
+│ • Update execution counter                    │
+│ • Calculate next execution time               │
+│ • Send notification to user                   │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 6: Progress Tracking
+┌──────────────────────────────────────────────┐
+│ Real-time Updates:                            │
+│ • Email/Push notification after each swap     │
+│ • In-app execution log                        │
+│ • Performance metrics:                        │
+│   - Average buy price                         │
+│   - Total accumulated                         │
+│   - ROI vs lump sum                           │
+│                                               │
+│ Completion:                                   │
+│ • Final summary report                        │
+│ • Option to renew subscription                │
+└──────────────────────────────────────────────┘
+                    ↓
+                ✅ Active
+```
+
+---
+
+### 4️⃣ Execution Flow (Backend)
+
+**Purpose:** Backend service that monitors and executes delegations
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     BACKEND EXECUTION                        │
+└─────────────────────────────────────────────────────────────┘
+
+Step 1: Validation
+┌──────────────────────────────────────────────┐
+│ On Delegation Received:                       │
+│ • Verify signature validity                   │
+│ • Check delegation not expired                │
+│ • Validate all caveats satisfied              │
+│ • Confirm nonce not used                      │
+│ • Store in execution queue                    │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 2: Monitoring
+┌──────────────────────────────────────────────┐
+│ Continuous Monitoring For:                    │
+│                                               │
+│ A. Market Conditions:                         │
+│    • Price thresholds met                     │
+│    • Liquidity availability                   │
+│    • Gas price optimal                        │
+│                                               │
+│ B. Time-Based:                                │
+│    • Scheduled execution time reached         │
+│    • Subscription interval completed          │
+│                                               │
+│ C. Subscription Schedules:                    │
+│    • Next run time for each subscription      │
+│    • Execution count not exceeded             │
+│    • Balance still sufficient                 │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 3: Execution
+┌──────────────────────────────────────────────┐
+│ When Conditions Met:                          │
+│ 1. Fetch latest market quote                  │
+│ 2. Validate quote within slippage             │
+│ 3. Execute approval if needed                 │
+│ 4. Execute swap via delegation:               │
+│    • Call smart account with delegation       │
+│    • Submit transaction to network            │
+│ 5. Wait for confirmation                      │
+│ 6. Update execution status                    │
+└──────────────────────────────────────────────┘
+                    ↓
+Step 4: Confirmation
+┌──────────────────────────────────────────────┐
+│ Post-Execution:                               │
+│ • Store transaction hash                      │
+│ • Update delegation status: COMPLETED         │
+│ • Calculate actual vs expected output         │
+│ • Compute gas cost                            │
+└──────────────────────────────────────────────┘
+                    ↓
+                ✅ Completed
+```
+
+---
 
 ## 🏗️ Technical Architecture
+
+### System Components
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     SYSTEM ARCHITECTURE                      │
+└─────────────────────────────────────────────────────────────┘
+
+Frontend (User Interface)
+┌──────────────────────────────────────────────┐
+│ • Wallet connection (WalletConnect, Metamask)│
+│ • Delegation signing interface               │
+│ • Portfolio management dashboard             │
+│ • Subscription configuration panel           │
+│ • Real-time execution tracking               │
+└──────────────────────────────────────────────┘
+                    ↓ API Calls
+Backend Services
+┌──────────────────────────────────────────────┐
+│ • Delegation validation service              │
+│ • Execution scheduler (cron jobs)            │
+│ • Market monitoring engine                   │
+│ • Notification service                       │
+│ • Transaction management                     │
+└──────────────────────────────────────────────┘
+                    ↓ RPC Calls
+Blockchain Layer
+┌──────────────────────────────────────────────┐
+│ • Smart Account contracts                    │
+│ • ERC20 tokens                               │
+│ • Swap router contracts (Monorail)           │
+│ • Event logs & transaction tracking          │
+└──────────────────────────────────────────────┘
+```
+
+### Data Flow
+
+```
+User Action → Frontend → Backend → Blockchain
+    ↓           ↓          ↓           ↓
+  Sign      Validate   Execute    Confirm
+    ↓           ↓          ↓           ↓
+  Store    Monitor    Update    Notify User
+```
+
+---
+
 
 ### Smart Account System
 ```javascript
@@ -115,36 +463,76 @@ const caveats = [
 ];
 ```
 
-## ⚡ Core Workflows
+---
 
-### Delegation Creation Flow
-1. **Initialization**: Set up smart account and swap parameters
-2. **Quote Fetching**: Get the best price from Monorail (batch or single)
-3. **Delegation Creation**: Create signed delegation with caveats
-4. **Approval Handling**: ERC20 approval delegation for non-native tokens
-5. **Submission**: Send delegation to backend API
+## ⚠️ Error Handling
 
-### Batch Convert Flow
-1. **Token Detection**: Scan smart account for all ERC20 tokens
-2. **Target Selection**: Choose conversion target token (excludes target from detection)
-3. **Quote Aggregation**: Fetch prices for all selected tokens simultaneously
-4. **Validation**: Auto-deselect tokens with failed quotes
-5. **Batch Execution**: Execute multiple conversions in single transaction
-6. **Confirmation**: Display comprehensive conversion summary
+### Common Error Scenarios
 
-### Auto Subscription Flow
-1. **Configuration**: Set frequency, duration, and token pair
-2. **Validation**: Check for duplicate pairs and sufficient balance
-3. **Delegation Setup**: Create time-bound recurring execution permissions
-4. **Monitoring**: System tracks execution count and next run time
-5. **Automatic Execution**: Scheduled swaps without user intervention
-6. **Progress Tracking**: Real-time updates on subscription status
+**1. Insufficient Balance**
+```
+Detection: Before delegation creation
+Action: Show error, suggest amount adjustment
+Recovery: User can reduce amount or cancel
+```
 
-### Execution Flow
-1. **Validation**: Server validates delegation signature
-2. **Monitoring**: System monitors market conditions/time/subscription schedules
-3. **Execution**: Automatic execution when conditions are met
-4. **Confirmation**: Status update and user notification
+**2. Quote Failure**
+```
+Detection: During quote fetching
+Action: Retry 3x with exponential backoff
+Recovery: Show error, allow manual retry
+```
+
+**3. Signature Rejection**
+```
+Detection: During wallet signing
+Action: Clear pending state
+Recovery: User can retry signing
+```
+
+**4. Execution Failure**
+```
+Detection: During on-chain execution
+Action: Mark delegation as FAILED
+Recovery: Refund gas, notify user, allow retry
+```
+
+**5. Slippage Exceeded**
+```
+Detection: Before execution
+Action: Skip execution, mark as SKIPPED
+Recovery: Notify user, wait for next interval
+```
+
+**6. Network Congestion**
+```
+Detection: High gas prices
+Action: Queue for later execution
+Recovery: Execute when gas drops below threshold
+```
+
+---
+
+## 📊 Status & Tracking
+
+### Delegation States
+
+```
+CREATED → PENDING → EXECUTING → EXECUTED
+   ↓         ↓          ↓          ↓
+REJECTED  QUEUED    FAILED    COMPLETED
+```
+
+### Subscription States
+
+```
+CONFIGURING → ACTIVE → PAUSED → ENDED
+                ↓         ↓        ↓
+              EXECUTING  RESUMED  COMPLETED
+```
+
+---
+
 
 ## 🎨 User Experience & Interface
 

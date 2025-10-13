@@ -44,14 +44,14 @@ const statusColor = {
 // Items per page
 const ITEMS_PER_PAGE = 3;
 
-// Fungsi untuk memformat timestamp
+// Fungction to format timestamp
 const formatTimestamp = (timestamp) => {
     if (!timestamp) return "N/A";
     const date = new Date(Number(timestamp));
     return date.toLocaleString();
 };
 
-// Fungsi untuk menghitung sisa waktu
+// Function to calculate remaining time
 const calculateRemainingTime = (timestampExecute) => {
     if (!timestampExecute) return "N/A";
 
@@ -219,7 +219,7 @@ export default function Task() {
     // wagmi
     const { address, isConnected } = useAccount();
 
-    // Fetch smart accounts saat komponen mount
+    // Fetch smart accounts when component mounts or when connection status changes
     useEffect(() => {
         const fetchSmartAccounts = async () => {
             if (isConnected && address) {
@@ -243,7 +243,7 @@ export default function Task() {
         fetchSmartAccounts();
     }, [isConnected, address]);
 
-    // Fetch delegation data ketika smart account berubah
+    // Fetch delegation data when smart account changes
     const fetchDelegationData = useCallback(async (smartAccountAddress) => {
         if (!smartAccountAddress) return;
 
@@ -269,7 +269,7 @@ export default function Task() {
         }
     }, [selectedSmartAccount, fetchDelegationData]);
 
-    // Map data dari API ke format task
+    // Map data from API to required format
     const mappedTasks = useMemo(() => {
         const tasks = tasksData.map(task => ({
             id: task._id?.$oid || Math.random().toString(),
@@ -287,11 +287,10 @@ export default function Task() {
             originalData: task
         }));
 
-        // Sort descending berdasarkan timestamp (baru → lama)
         return tasks.sort((a, b) => Number(b.originalData.timestamp) - Number(a.originalData.timestamp));
     }, [tasksData]);
 
-    // Filter tasks berdasarkan status aktif 
+    // Filter tasks based on activeStatus 
     const filteredTasks = useMemo(() => {
         if (activeStatus === "all") return mappedTasks;
         return mappedTasks.filter(task => task.status === activeStatus);
@@ -300,20 +299,20 @@ export default function Task() {
     // Pagination logic
     const totalPages = Math.ceil(filteredTasks.length / ITEMS_PER_PAGE);
 
-    // Get tasks untuk halaman saat ini
+    // Get tasks for current page
     const currentTasks = useMemo(() => {
         const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
         const endIndex = startIndex + ITEMS_PER_PAGE;
         return filteredTasks.slice(startIndex, endIndex);
     }, [filteredTasks, currentPage]);
 
-    // Handler untuk membuka dialog konfirmasi cancel
+    // Handler to open cancel confirmation dialog
     const handleOpenCancelDialog = (task) => {
         setSelectedTask(task);
         setCancelDialogOpen(true);
     };
 
-    // Handler untuk menutup dialog konfirmasi cancel
+    // Handler to close cancel dialog
     const handleCloseCancelDialog = () => {
         if (!cancelling) {
             setCancelDialogOpen(false);
@@ -321,31 +320,27 @@ export default function Task() {
         }
     };
 
-    // Handler untuk eksekusi cancel task :cite[1]
+    // Handler to confirm cancellation
     const handleConfirmCancel = async () => {
         if (!selectedTask || !selectedSmartAccount) return;
 
         setCancelling(true);
         try {
-            // Panggil API untuk cancel task
             const response = await cancelDelegationTask(selectedTask.originalData._id);
 
             if (response.status === 'ok' || response.success) {
-                // Show success popup
                 setResultPopup({
                     open: true,
                     success: true,
                     message: "The task has been successfully cancelled."
                 });
 
-                // Refresh data tasks
                 await fetchDelegationData(selectedSmartAccount);
             } else {
                 throw new Error(response.message || "Failed to cancel task");
             }
         } catch (err) {
             console.error("Failed to cancel task:", err);
-            // Show error popup
             setResultPopup({
                 open: true,
                 success: false,
@@ -359,12 +354,12 @@ export default function Task() {
         }
     };
 
-    // Handler untuk menutup result popup
+    // Handler to close result popup
     const handleCloseResultPopup = () => {
         setResultPopup(prev => ({ ...prev, open: false }));
     };
 
-    // Generate pagination links dengan ellipsis
+    // Generate pagination links with ellipsis
     const generatePaginationLinks = () => {
         const pages = [];
         const maxVisiblePages = 3;
