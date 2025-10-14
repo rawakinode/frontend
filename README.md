@@ -652,4 +652,3 @@ DELEGATOR_ADDRESS_AUTOBUY = "0xc14e57e4ba2a86652f362c459c0dc048331f4444"; // Aut
 - **Strategy Implementation**: Support for DCA and recurring investment strategies
 - **Risk Reduction**: Automated execution at optimal conditions
 
-Swifter represents the next evolution in decentralized trading - combining the power of account abstraction, delegation technology, and advanced order types to create a truly automated and secure trading experience in the Monad ecosystem. With the addition of Batch Convert and Auto Subscription features, Swifter now offers comprehensive portfolio management and automated investment strategies unmatched in the DeFi space.

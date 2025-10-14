@@ -37,6 +37,7 @@ import {
 
 const statusColor = {
     active: "bg-green-600",
+    failed: "bg-red-600",
     canceled: "bg-gray-600",
     completed: "bg-blue-600",
     expired: "bg-orange-600"
