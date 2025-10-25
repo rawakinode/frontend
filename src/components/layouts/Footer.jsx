@@ -5,9 +5,9 @@ export function Footer() {
         <div className="flex items-center justify-center gap-4 text-sm">
           {/* Swifter Logo & Name */}
           <div className="flex items-center gap-2">
-            <img 
-              src="/swifter_white.svg" 
-              alt="Swifter Logo" 
+            <img
+              src="/swifter_white.svg"
+              alt="Swifter Logo"
               className="w-5 h-5"
             />
             <span className="font-medium">Swifter</span>
@@ -18,23 +18,29 @@ export function Footer() {
 
           {/* Partner Logos */}
           <div className="flex items-center gap-3">
-            <img 
-              src="/monad.svg" 
-              alt="Monad" 
-              className="w-5 h-5 opacity-80 hover:opacity-100 transition-opacity"
-            />
+            <a href="https://www.monad.xyz" target="_blank" rel="noopener noreferrer">
+              <img
+                src="/monad.svg"
+                alt="Monad"
+                className="w-5 h-5 opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </a>
             <span>•</span>
-            <img 
-              src="/metamask.png" 
-              alt="Metamask" 
-              className="w-5 h-5 opacity-80 hover:opacity-100 transition-opacity"
-            />
+            <a href="https://metamask.io/" target="_blank" rel="noopener noreferrer">
+              <img
+                src="/metamask-white.svg"
+                alt="Metamask"
+                className="w-8 h-8 opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </a>
             <span>•</span>
-            <img 
-              src="/monorail.png" 
-              alt="Monorail" 
-              className="w-15 h-5 opacity-80 hover:opacity-100 transition-opacity"
-            />
+            <a href="https://monorail.xyz" target="_blank" rel="noopener noreferrer">
+              <img
+                src="/monorail.png"
+                alt="Monorail"
+                className="w-15 h-5 opacity-80 hover:opacity-100 transition-opacity"
+              />
+            </a>
           </div>
         </div>
       </div>
